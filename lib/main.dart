@@ -3,9 +3,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
-import 'add_listing_screen.dart';
 import 'login_screen.dart';
+import 'add_listing_screen.dart';
 import 'property_details_screen.dart';
+import 'my_listings_screen.dart';
 
 void main() {
   runApp(const PropertiesAnywhereApp());
@@ -39,14 +40,14 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final TextEditingController cityController = TextEditingController();
+  final cityController = TextEditingController();
 
   List<Map<String, dynamic>> properties = [];
 
   bool isLoading = false;
 
   Future<void> searchProperties() async {
-    final String city = cityController.text.trim();
+    final city = cityController.text.trim();
 
     if (city.isEmpty) {
       setState(() {
@@ -59,7 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
       isLoading = true;
     });
 
-    final Uri url = Uri.parse(
+    final url = Uri.parse(
       'http://10.0.2.2:8080/api/properties?city=${Uri.encodeComponent(city)}',
     );
 
@@ -67,15 +68,14 @@ class _HomeScreenState extends State<HomeScreen> {
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
-        final dynamic decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(response.body);
 
         if (decoded is List) {
           setState(() {
             properties = decoded
                 .whereType<Map>()
                 .map(
-                  (property) =>
-                      Map<String, dynamic>.from(property),
+                  (property) => Map<String, dynamic>.from(property),
                 )
                 .toList();
           });
@@ -86,6 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       } else {
         print('Error: ${response.statusCode}');
+        print(response.body);
 
         setState(() {
           properties = [];
@@ -99,9 +100,11 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
 
-    setState(() {
-      isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        isLoading = false;
+      });
+    }
   }
 
   void logout() {
@@ -119,6 +122,18 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       MaterialPageRoute(
         builder: (context) => AddListingScreen(
+          userId: widget.userId,
+          userName: widget.userName,
+        ),
+      ),
+    );
+  }
+
+  void openMyListings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MyListingsScreen(
           userId: widget.userId,
           userName: widget.userName,
         ),
@@ -154,6 +169,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.list_alt),
+            tooltip: 'My Listings',
+            onPressed: openMyListings,
+          ),
           IconButton(
             icon: const Icon(Icons.add_home_outlined),
             tooltip: 'Add Listing',
@@ -197,7 +217,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 labelText: 'City',
                 hintText: 'e.g. Munich',
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.location_city),
+                prefixIcon: Icon(
+                  Icons.location_city,
+                ),
               ),
               onSubmitted: (value) {
                 searchProperties();
@@ -231,10 +253,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   : ListView.builder(
                       itemCount: properties.length,
                       itemBuilder: (context, index) {
-                        final Map<String, dynamic> property =
-                            properties[index];
+                        final property = properties[index];
 
-                        final String imageUrl =
+                        final imageUrl =
                             property['imageUrl']?.toString() ?? '';
 
                         return Card(
@@ -287,8 +308,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 ListTile(
                                   title: Text(
-                                    property['title']
-                                            ?.toString() ??
+                                    property['title']?.toString() ??
                                         'No title',
                                   ),
                                   subtitle: Text(
