@@ -1,8 +1,11 @@
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
 import 'add_listing_screen.dart';
+import 'login_screen.dart';
+import 'property_details_screen.dart';
 
 void main() {
   runApp(const PropertiesAnywhereApp());
@@ -16,28 +19,35 @@ class PropertiesAnywhereApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'PropertiesAnywhere',
-      home: const HomeScreen(),
+      home: const LoginScreen(),
     );
   }
 }
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final int userId;
+  final String userName;
+
+  const HomeScreen({
+    super.key,
+    required this.userId,
+    required this.userName,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final cityController = TextEditingController();
+  final TextEditingController cityController = TextEditingController();
 
-  List properties = [];
+  List<Map<String, dynamic>> properties = [];
 
-  // Search properties
+  bool isLoading = false;
+
   Future<void> searchProperties() async {
-    String city = cityController.text.trim();
+    final String city = cityController.text.trim();
 
-    // If city is empty, clear old results
     if (city.isEmpty) {
       setState(() {
         properties = [];
@@ -45,56 +55,130 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    final url = Uri.parse(
-      'http://10.0.2.2:8080/api/properties?city=$city',
+    setState(() {
+      isLoading = true;
+    });
+
+    final Uri url = Uri.parse(
+      'http://10.0.2.2:8080/api/properties?city=${Uri.encodeComponent(city)}',
     );
 
-    final response = await http.get(url);
+    try {
+      final response = await http.get(url);
 
-    if (response.statusCode == 200) {
+      if (response.statusCode == 200) {
+        final dynamic decoded = jsonDecode(response.body);
+
+        if (decoded is List) {
+          setState(() {
+            properties = decoded
+                .whereType<Map>()
+                .map(
+                  (property) =>
+                      Map<String, dynamic>.from(property),
+                )
+                .toList();
+          });
+        } else {
+          setState(() {
+            properties = [];
+          });
+        }
+      } else {
+        print('Error: ${response.statusCode}');
+
+        setState(() {
+          properties = [];
+        });
+      }
+    } catch (error) {
+      print('Connection error: $error');
+
       setState(() {
-        properties = jsonDecode(response.body);
+        properties = [];
       });
-    } else {
-      print('Error: ${response.statusCode}');
     }
+
+    setState(() {
+      isLoading = false;
+    });
+  }
+
+  void logout() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const LoginScreen(),
+      ),
+      (route) => false,
+    );
+  }
+
+  void openAddListing() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddListingScreen(
+          userId: widget.userId,
+          userName: widget.userName,
+        ),
+      ),
+    );
+  }
+
+  void openPropertyDetails(Map<String, dynamic> property) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PropertyDetailsScreen(
+          property: property,
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    cityController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Top bar
       appBar: AppBar(
-        title: const Text('PropertiesAnywhere'),
-
-        // Add Listing button
+        title: const Text(
+          'PropertiesAnywhere',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const AddListingScreen(),
-                ),
-              );
-            },
-            child: const Text(
-              'Add Listing',
-            ),
+          IconButton(
+            icon: const Icon(Icons.add_home_outlined),
+            tooltip: 'Add Listing',
+            onPressed: openAddListing,
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Logout',
+            onPressed: logout,
           ),
         ],
       ),
-
-      // Main screen
       body: Padding(
         padding: const EdgeInsets.all(20),
-
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 20),
-
-            // Heading
+            Text(
+              'Welcome, ${widget.userName}!',
+              style: const TextStyle(
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 10),
             const Text(
               'Find your next home.',
               style: TextStyle(
@@ -102,130 +186,143 @@ class _HomeScreenState extends State<HomeScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-
             const SizedBox(height: 10),
-
             const Text(
               'Search for rooms and properties by city.',
             ),
-
             const SizedBox(height: 25),
-
-            // City input
             TextField(
               controller: cityController,
               decoration: const InputDecoration(
                 labelText: 'City',
                 hintText: 'e.g. Munich',
                 border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.location_city),
               ),
+              onSubmitted: (value) {
+                searchProperties();
+              },
             ),
-
             const SizedBox(height: 15),
-
-            // Search button
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: searchProperties,
-                child: const Text('Search'),
+                onPressed: isLoading ? null : searchProperties,
+                child: isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text('Search'),
               ),
             ),
-
             const SizedBox(height: 25),
-
-            // Property list
             Expanded(
-              child: ListView.builder(
-                itemCount: properties.length,
+              child: properties.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'Search for a city to see properties.',
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: properties.length,
+                      itemBuilder: (context, index) {
+                        final Map<String, dynamic> property =
+                            properties[index];
 
-                itemBuilder: (context, index) {
-                  final property = properties[index];
+                        final String imageUrl =
+                            property['imageUrl']?.toString() ?? '';
 
-                  // Get image URL
-                  String? imageUrl = property['imageUrl'];
-
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 20),
-
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Property image
-                        if (imageUrl != null && imageUrl.isNotEmpty)
-                          Image.network(
-                            imageUrl,
-                            height: 180,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-
-                            // Show placeholder if image fails
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                height: 180,
-                                width: double.infinity,
-                                color: Colors.grey.shade300,
-                                child: const Center(
-                                  child: Icon(
-                                    Icons.home,
-                                    size: 60,
-                                    color: Colors.grey,
+                        return Card(
+                          margin: const EdgeInsets.only(
+                            bottom: 20,
+                          ),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () {
+                              openPropertyDetails(property);
+                            },
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                if (imageUrl.isNotEmpty)
+                                  Image.network(
+                                    imageUrl,
+                                    height: 180,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                    errorBuilder:
+                                        (context, error, stackTrace) {
+                                      return Container(
+                                        height: 180,
+                                        width: double.infinity,
+                                        color: Colors.grey.shade300,
+                                        child: const Center(
+                                          child: Icon(
+                                            Icons.home,
+                                            size: 60,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  )
+                                else
+                                  Container(
+                                    height: 180,
+                                    width: double.infinity,
+                                    color: Colors.grey.shade300,
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.home,
+                                        size: 60,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ),
+                                ListTile(
+                                  title: Text(
+                                    property['title']
+                                            ?.toString() ??
+                                        'No title',
+                                  ),
+                                  subtitle: Text(
+                                    '${property['city']?.toString() ?? ''}'
+                                    ' • '
+                                    '${property['address']?.toString() ?? ''}',
+                                  ),
+                                  trailing: Text(
+                                    '€${property['rent']?.toString() ?? '0'}',
                                   ),
                                 ),
-                              );
-                            },
-                          )
-                        else
-                          Container(
-                            height: 180,
-                            width: double.infinity,
-                            color: Colors.grey.shade300,
-                            child: const Center(
-                              child: Icon(
-                                Icons.home,
-                                size: 60,
-                                color: Colors.grey,
-                              ),
+                                if (property['description'] != null &&
+                                    property['description']
+                                        .toString()
+                                        .isNotEmpty)
+                                  Padding(
+                                    padding:
+                                        const EdgeInsets.fromLTRB(
+                                      16,
+                                      0,
+                                      16,
+                                      16,
+                                    ),
+                                    child: Text(
+                                      property['description']
+                                          .toString(),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
-
-                        // Property information
-                        ListTile(
-                          title: Text(
-                            property['title'] ?? 'No title',
-                          ),
-
-                          subtitle: Text(
-                            '${property['city'] ?? ''} • '
-                            '${property['address'] ?? ''}',
-                          ),
-
-                          trailing: Text(
-                            '€${property['rent'] ?? 0}',
-                          ),
-                        ),
-
-                        // Description
-                        if (property['description'] != null &&
-                            property['description']
-                                .toString()
-                                .isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                              16,
-                              0,
-                              16,
-                              16,
-                            ),
-                            child: Text(
-                              property['description'],
-                            ),
-                          ),
-                      ],
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
           ],
         ),
