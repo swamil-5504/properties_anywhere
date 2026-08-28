@@ -90,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> loadUnreadCount() async {
     try {
       final Uri url = Uri.parse(
-        'http://10.0.2.2:8080/api/messages/unread/count/${widget.userId}',
+        'https://properties-anywhere-backend.onrender.com/api/messages/unread/count/${widget.userId}',
       );
 
       final response =
@@ -141,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     final Uri url = Uri.parse(
-      'http://10.0.2.2:8080/api/properties'
+      'https://properties-anywhere-backend.onrender.com/api/properties'
       '?city=${Uri.encodeComponent(city)}',
     );
 

@@ -26,7 +26,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     final url = Uri.parse(
-      'http://10.0.2.2:8080/api/auth/login',
+      'https://properties-anywhere-backend.onrender.com/api/auth/login',
     );
 
     try {
@@ -56,7 +56,12 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
       } else {
-        showMessage('Invalid email or password');
+        print('LOGIN STATUS: ${response.statusCode}');
+        print('LOGIN RESPONSE: ${response.body}');
+
+        showMessage(
+          'Login failed: ${response.statusCode}',
+        );
       }
     } catch (error) {
       print(error);

@@ -34,7 +34,7 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
     });
 
     final url = Uri.parse(
-      'http://10.0.2.2:8080/api/properties/user/${widget.userId}',
+      'https://properties-anywhere-backend.onrender.com/api/properties/user/${widget.userId}',
     );
 
     try {

@@ -41,7 +41,7 @@ class _AddListingScreenState extends State<AddListingScreen> {
     }
 
     final url = Uri.parse(
-      'http://10.0.2.2:8080/api/properties?userId=${widget.userId}',
+      'https://properties-anywhere-backend.onrender.com/api/properties?userId=${widget.userId}',
     );
 
     try {

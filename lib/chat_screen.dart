@@ -170,7 +170,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> loadMessages() async {
     try {
       final Uri url = Uri.parse(
-        'http://10.0.2.2:8080/api/messages/conversation'
+        'https://properties-anywhere-backend.onrender.com/api/messages/conversation'
         '?user1Id=${widget.currentUserId}'
         '&user2Id=${widget.ownerId}'
         '&propertyId=${widget.propertyId}',
@@ -249,7 +249,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> markConversationAsRead() async {
     try {
       final Uri url = Uri.parse(
-        'http://10.0.2.2:8080/api/messages/read'
+        'https://properties-anywhere-backend.onrender.com/api/messages/read'
         '?receiverId=${widget.currentUserId}'
         '&senderId=${widget.ownerId}'
         '&propertyId=${widget.propertyId}',
@@ -290,7 +290,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     try {
       final Uri url = Uri.parse(
-        'http://10.0.2.2:8080/api/messages'
+        'https://properties-anywhere-backend.onrender.com/api/messages'
         '?senderId=${widget.currentUserId}'
         '&receiverId=${widget.ownerId}'
         '&propertyId=${widget.propertyId}',

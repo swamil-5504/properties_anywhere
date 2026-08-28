@@ -110,7 +110,7 @@ class _EditListingScreenState extends State<EditListingScreen> {
     final propertyId = widget.property['id'];
 
     final url = Uri.parse(
-      'http://10.0.2.2:8080/api/properties/'
+      'https://properties-anywhere-backend.onrender.com/api/properties/'
       '$propertyId?userId=${widget.userId}',
     );
 

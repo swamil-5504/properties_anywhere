@@ -35,7 +35,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
   Future<void> loadMessages() async {
     try {
       final Uri url = Uri.parse(
-        'http://10.0.2.2:8080/api/messages/user/${widget.userId}',
+        'https://properties-anywhere-backend.onrender.com/api/messages/user/${widget.userId}',
       );
 
       final response = await http.get(url);

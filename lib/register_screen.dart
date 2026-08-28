@@ -29,7 +29,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     final url = Uri.parse(
-      'http://10.0.2.2:8080/api/auth/register',
+      'https://properties-anywhere-backend.onrender.com/api/auth/register',
     );
 
     try {
