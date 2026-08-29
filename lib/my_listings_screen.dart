@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
@@ -15,11 +16,13 @@ class MyListingsScreen extends StatefulWidget {
   });
 
   @override
-  State<MyListingsScreen> createState() => _MyListingsScreenState();
+  State<MyListingsScreen> createState() =>
+      _MyListingsScreenState();
 }
 
 class _MyListingsScreenState extends State<MyListingsScreen> {
   List<Map<String, dynamic>> properties = [];
+
   bool isLoading = true;
 
   @override
@@ -28,236 +31,548 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
     loadListings();
   }
 
+  // ------------------------------------------------------------
+  // LOAD USER LISTINGS
+  // ------------------------------------------------------------
+
   Future<void> loadListings() async {
-    setState(() {
-      isLoading = true;
-    });
+    if (mounted) {
+      setState(() {
+        isLoading = true;
+      });
+    }
 
     final url = Uri.parse(
       'https://properties-anywhere-backend.onrender.com/api/properties/user/${widget.userId}',
     );
 
     try {
-      final response = await http.get(url);
+      final http.Response response =
+          await http.get(url);
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
+        final dynamic decoded =
+            jsonDecode(response.body);
 
-        setState(() {
-          properties = data
-              .whereType<Map>()
-              .map(
-                (property) => Map<String, dynamic>.from(property),
-              )
-              .toList();
-        });
+        if (decoded is List) {
+          final List<Map<String, dynamic>>
+              loadedProperties = [];
+
+          for (final dynamic item in decoded) {
+            if (item is Map) {
+              loadedProperties.add(
+                Map<String, dynamic>.from(item),
+              );
+            }
+          }
+
+          if (mounted) {
+            setState(() {
+              properties = loadedProperties;
+            });
+          }
+        } else {
+          if (mounted) {
+            setState(() {
+              properties = [];
+            });
+          }
+        }
       } else {
+        debugPrint(
+          'Error loading listings: '
+          '${response.statusCode}',
+        );
+
+        debugPrint(response.body);
+
+        if (mounted) {
+          setState(() {
+            properties = [];
+          });
+        }
+      }
+    } catch (error) {
+      debugPrint(
+        'Connection error: $error',
+      );
+
+      if (mounted) {
         setState(() {
           properties = [];
         });
-
-        print('Error loading listings: ${response.statusCode}');
       }
-    } catch (error) {
-      print('Connection error: $error');
-
-      setState(() {
-        properties = [];
-      });
-    }
-
-    if (mounted) {
-      setState(() {
-        isLoading = false;
-      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
+
+  // ------------------------------------------------------------
+  // OPEN EDIT LISTING
+  // ------------------------------------------------------------
 
   Future<void> openEditListing(
     Map<String, dynamic> property,
   ) async {
-    final result = await Navigator.push(
+    final dynamic result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => EditListingScreen(
+        builder: (context) =>
+            EditListingScreen(
           property: property,
           userId: widget.userId,
         ),
       ),
     );
 
-    if (result == true) {
-      loadListings();
+    if (result == true && mounted) {
+      await loadListings();
     }
   }
+
+  // ------------------------------------------------------------
+  // IMAGE PLACEHOLDER
+  // ------------------------------------------------------------
+
+  Widget buildImagePlaceholder() {
+    return Container(
+      height: 210,
+      width: double.infinity,
+      color: const Color(0xFFEFF6FF),
+      child: const Center(
+        child: Icon(
+          Icons.home_outlined,
+          size: 70,
+          color: Color(0xFF93C5FD),
+        ),
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------
+  // PROPERTY IMAGE
+  // ------------------------------------------------------------
+
+  Widget buildPropertyImage(
+    String imageUrl,
+  ) {
+    if (imageUrl.isEmpty) {
+      return buildImagePlaceholder();
+    }
+
+    return Image.network(
+      imageUrl,
+      height: 210,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder:
+          (context, error, stackTrace) {
+        return buildImagePlaceholder();
+      },
+      loadingBuilder:
+          (context, child, loadingProgress) {
+        if (loadingProgress == null) {
+          return child;
+        }
+
+        return Container(
+          height: 210,
+          width: double.infinity,
+          color: const Color(0xFFF3F4F6),
+          child: const Center(
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Color(0xFF2563EB),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ------------------------------------------------------------
+  // EMPTY STATE
+  // ------------------------------------------------------------
+
+  Widget buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 35,
+        ),
+        child: Column(
+          mainAxisAlignment:
+              MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 90,
+              height: 90,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius:
+                    BorderRadius.circular(28),
+              ),
+              child: const Icon(
+                Icons.home_work_outlined,
+                size: 44,
+                color: Color(0xFF2563EB),
+              ),
+            ),
+
+            const SizedBox(height: 22),
+
+            const Text(
+              'No listings yet',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF171717),
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            const Text(
+              'Properties you create will appear here.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Color(0xFF6B7280),
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------
+  // LISTING CARD
+  // ------------------------------------------------------------
+
+  Widget buildListingCard(
+    Map<String, dynamic> property,
+  ) {
+    final String imageUrl =
+        property['imageUrl']?.toString() ?? '';
+
+    final String title =
+        property['title']?.toString().trim() ?? '';
+
+    final String city =
+        property['city']?.toString().trim() ?? '';
+
+    final String address =
+        property['address']?.toString().trim() ?? '';
+
+    final String rent =
+        property['rent']?.toString() ?? '0';
+
+    final String description =
+        property['description']
+                ?.toString()
+                .trim() ??
+            '';
+
+    return Container(
+      margin: const EdgeInsets.only(
+        bottom: 20,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFFE5E7EB),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          // --------------------------------------------------
+          // IMAGE
+          // --------------------------------------------------
+
+          Stack(
+            children: [
+              buildPropertyImage(imageUrl),
+
+              Positioned(
+                top: 14,
+                right: 14,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(
+                    horizontal: 11,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius:
+                        BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black
+                            .withOpacity(0.12),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    '€$rent / month',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight:
+                          FontWeight.w700,
+                      color:
+                          Color(0xFF2563EB),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          // --------------------------------------------------
+          // DETAILS
+          // --------------------------------------------------
+
+          Padding(
+            padding: const EdgeInsets.all(17),
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title.isNotEmpty
+                      ? title
+                      : 'Untitled property',
+                  maxLines: 2,
+                  overflow:
+                      TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight:
+                        FontWeight.w700,
+                    color: Color(0xFF171717),
+                    height: 1.2,
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                // LOCATION
+
+                Row(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.location_on_outlined,
+                      size: 19,
+                      color: Color(0xFF2563EB),
+                    ),
+
+                    const SizedBox(width: 7),
+
+                    Expanded(
+                      child: Text(
+                        city.isNotEmpty &&
+                                address.isNotEmpty
+                            ? '$city • $address'
+                            : city.isNotEmpty
+                                ? city
+                                : address.isNotEmpty
+                                    ? address
+                                    : 'Location unavailable',
+                        maxLines: 2,
+                        overflow:
+                            TextOverflow.ellipsis,
+                        style:
+                            const TextStyle(
+                          fontSize: 14,
+                          color:
+                              Color(0xFF6B7280),
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // DESCRIPTION
+
+                if (description.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+
+                  Text(
+                    description,
+                    maxLines: 3,
+                    overflow:
+                        TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF4B5563),
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 17),
+
+                const Divider(
+                  height: 1,
+                  color: Color(0xFFE5E7EB),
+                ),
+
+                const SizedBox(height: 15),
+
+                // EDIT BUTTON
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      openEditListing(
+                        property,
+                      );
+                    },
+                    icon: const Icon(
+                      Icons.edit_outlined,
+                      size: 19,
+                    ),
+                    label: const Text(
+                      'Edit Listing',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight:
+                            FontWeight.w600,
+                      ),
+                    ),
+                    style:
+                        ElevatedButton.styleFrom(
+                      backgroundColor:
+                          const Color(0xFF2563EB),
+                      foregroundColor:
+                          Colors.white,
+                      elevation: 0,
+                      shape:
+                          RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(
+                          12,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------
+  // BUILD
+  // ------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor:
+          const Color(0xFFF7F8FA),
+
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        foregroundColor:
+            const Color(0xFF171717),
+        elevation: 0,
+        surfaceTintColor: Colors.white,
+
         title: const Text(
           'My Listings',
           style: TextStyle(
-            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
           ),
         ),
+
+        actions: [
+          IconButton(
+            tooltip: 'Refresh',
+            onPressed:
+                isLoading
+                    ? null
+                    : loadListings,
+            icon: const Icon(
+              Icons.refresh_outlined,
+            ),
+          ),
+
+          const SizedBox(width: 6),
+        ],
       ),
+
       body: isLoading
           ? const Center(
-              child: CircularProgressIndicator(),
+              child: CircularProgressIndicator(
+                color: Color(0xFF2563EB),
+              ),
             )
           : properties.isEmpty
-              ? const Center(
-                  child: Text(
-                    'You have no listings yet.',
-                    style: TextStyle(
-                      fontSize: 16,
-                    ),
+              ? RefreshIndicator(
+                  onRefresh: loadListings,
+                  color: const Color(0xFF2563EB),
+                  child: ListView(
+                    physics:
+                        const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      SizedBox(
+                        height:
+                            MediaQuery.of(context)
+                                    .size
+                                    .height *
+                                0.65,
+                        child: buildEmptyState(),
+                      ),
+                    ],
                   ),
                 )
               : RefreshIndicator(
                   onRefresh: loadListings,
+                  color: const Color(0xFF2563EB),
                   child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: properties.length,
-                    itemBuilder: (context, index) {
-                      final property = properties[index];
-
-                      final String imageUrl =
-                          property['imageUrl']?.toString() ?? '';
-
-                      return Card(
-                        margin: const EdgeInsets.only(
-                          bottom: 20,
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
-                          children: [
-                            if (imageUrl.isNotEmpty)
-                              Image.network(
-                                imageUrl,
-                                height: 200,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                                errorBuilder:
-                                    (context, error, stackTrace) {
-                                  return Container(
-                                    height: 200,
-                                    width: double.infinity,
-                                    color: Colors.grey.shade300,
-                                    child: const Center(
-                                      child: Icon(
-                                        Icons.home,
-                                        size: 70,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              )
-                            else
-                              Container(
-                                height: 200,
-                                width: double.infinity,
-                                color: Colors.grey.shade300,
-                                child: const Center(
-                                  child: Icon(
-                                    Icons.home,
-                                    size: 70,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ),
-
-                            Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          property['title']
-                                                  ?.toString() ??
-                                              'No title',
-                                          style:
-                                              const TextStyle(
-                                            fontSize: 21,
-                                            fontWeight:
-                                                FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Text(
-                                        '€${property['rent']?.toString() ?? '0'}',
-                                        style:
-                                            const TextStyle(
-                                          fontSize: 18,
-                                          fontWeight:
-                                              FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-
-                                  const SizedBox(height: 10),
-
-                                  Text(
-                                    '${property['city']?.toString() ?? ''} • '
-                                    '${property['address']?.toString() ?? ''}',
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                    ),
-                                  ),
-
-                                  if (property['description'] !=
-                                          null &&
-                                      property['description']
-                                          .toString()
-                                          .trim()
-                                          .isNotEmpty) ...[
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      property['description']
-                                          .toString(),
-                                      maxLines: 3,
-                                      overflow:
-                                          TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 15,
-                                      ),
-                                    ),
-                                  ],
-
-                                  const SizedBox(height: 16),
-
-                                  SizedBox(
-                                    width: double.infinity,
-                                    child: ElevatedButton.icon(
-                                      onPressed: () =>
-                                          openEditListing(
-                                        property,
-                                      ),
-                                      icon: const Icon(
-                                        Icons.edit,
-                                      ),
-                                      label: const Text(
-                                        'Edit Listing',
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                    physics:
+                        const AlwaysScrollableScrollPhysics(),
+                    padding:
+                        const EdgeInsets.fromLTRB(
+                      16,
+                      18,
+                      16,
+                      30,
+                    ),
+                    itemCount:
+                        properties.length,
+                    itemBuilder:
+                        (context, index) {
+                      return buildListingCard(
+                        properties[index],
                       );
                     },
                   ),
