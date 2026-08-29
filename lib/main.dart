@@ -9,6 +9,7 @@ import 'add_listing_screen.dart';
 import 'property_details_screen.dart';
 import 'my_listings_screen.dart';
 import 'messages_screen.dart';
+import 'profile_screen.dart';
 
 void main() {
   runApp(const PropertiesAnywhereApp());
@@ -22,6 +23,80 @@ class PropertiesAnywhereApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'PropertiesAnywhere',
+
+      theme: ThemeData(
+        useMaterial3: true,
+
+        scaffoldBackgroundColor:
+            const Color(0xFFF7F8FA),
+
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF2563EB),
+        ),
+
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          foregroundColor: Color(0xFF171717),
+          elevation: 0,
+        ),
+
+        inputDecorationTheme:
+            InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+
+          border: OutlineInputBorder(
+            borderRadius:
+                BorderRadius.circular(14),
+            borderSide: const BorderSide(
+              color: Color(0xFFE5E7EB),
+            ),
+          ),
+
+          enabledBorder: OutlineInputBorder(
+            borderRadius:
+                BorderRadius.circular(14),
+            borderSide: const BorderSide(
+              color: Color(0xFFE5E7EB),
+            ),
+          ),
+
+          focusedBorder: OutlineInputBorder(
+            borderRadius:
+                BorderRadius.circular(14),
+            borderSide: const BorderSide(
+              color: Color(0xFF2563EB),
+              width: 1.5,
+            ),
+          ),
+
+          contentPadding:
+              const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 15,
+          ),
+        ),
+
+        elevatedButtonTheme:
+            ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor:
+                const Color(0xFF2563EB),
+            foregroundColor: Colors.white,
+            elevation: 0,
+
+            minimumSize:
+                const Size.fromHeight(50),
+
+            shape:
+                RoundedRectangleBorder(
+              borderRadius:
+                  BorderRadius.circular(14),
+            ),
+          ),
+        ),
+      ),
+
       home: const LoginScreen(),
     );
   }
@@ -50,17 +125,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool isLoading = false;
 
-  // ------------------------------------------------------------
-  // UNREAD MESSAGE COUNT
-  // ------------------------------------------------------------
-
   int unreadMessageCount = 0;
 
   Timer? unreadTimer;
-
-  // ------------------------------------------------------------
-  // INIT
-  // ------------------------------------------------------------
 
   @override
   void initState() {
@@ -68,7 +135,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     loadUnreadCount();
 
-    // Check every 5 seconds while HomeScreen is open.
     unreadTimer = Timer.periodic(
       const Duration(seconds: 5),
       (_) {
@@ -78,13 +144,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ------------------------------------------------------------
-  // LOAD UNREAD COUNT
-  //
-  // Backend:
-  //
-  // GET
-  // /api/messages/unread/count/{userId}
-  //
+  // UNREAD MESSAGES
   // ------------------------------------------------------------
 
   Future<void> loadUnreadCount() async {
@@ -98,21 +158,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (response.statusCode == 200) {
         final int? count =
-            int.tryParse(
-          response.body.trim(),
-        );
+            int.tryParse(response.body.trim());
 
-        if (count != null &&
-            mounted) {
+        if (count != null && mounted) {
           setState(() {
             unreadMessageCount = count;
           });
         }
-      } else {
-        debugPrint(
-          'Unread count error: '
-          '${response.statusCode}',
-        );
       }
     } catch (error) {
       debugPrint(
@@ -122,7 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ------------------------------------------------------------
-  // SEARCH PROPERTIES
+  // SEARCH
   // ------------------------------------------------------------
 
   Future<void> searchProperties() async {
@@ -146,7 +198,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     try {
-      final http.Response response =
+      final response =
           await http.get(url);
 
       if (response.statusCode == 200) {
@@ -157,13 +209,10 @@ class _HomeScreenState extends State<HomeScreen> {
           final List<Map<String, dynamic>>
               loadedProperties = [];
 
-          for (final dynamic item
-              in decoded) {
+          for (final dynamic item in decoded) {
             if (item is Map) {
               loadedProperties.add(
-                Map<String, dynamic>.from(
-                  item,
-                ),
+                Map<String, dynamic>.from(item),
               );
             }
           }
@@ -183,11 +232,8 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       } else {
         debugPrint(
-          'Error searching properties: '
-          '${response.statusCode}',
+          'Search error: ${response.statusCode}',
         );
-
-        debugPrint(response.body);
 
         if (mounted) {
           setState(() {
@@ -197,7 +243,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     } catch (error) {
       debugPrint(
-        'Connection error: $error',
+        'Search connection error: $error',
       );
 
       if (mounted) {
@@ -215,35 +261,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ------------------------------------------------------------
-  // LOGOUT
+  // MESSAGES
   // ------------------------------------------------------------
 
-  void logout() {
-    Navigator.pushAndRemoveUntil(
+  Future<void> openMessages() async {
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) =>
-            const LoginScreen(),
-      ),
-      (route) => false,
-    );
-  }
-
-  // ------------------------------------------------------------
-  // ADD LISTING
-  // ------------------------------------------------------------
-
-  void openAddListing() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) =>
-            AddListingScreen(
+            MessagesScreen(
           userId: widget.userId,
-          userName: widget.userName,
         ),
       ),
     );
+
+    await loadUnreadCount();
   }
 
   // ------------------------------------------------------------
@@ -264,36 +296,37 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ------------------------------------------------------------
-  // OPEN MESSAGES
-  //
-  // IMPORTANT:
-  //
-  // We DO NOT change unreadMessageCount here.
-  //
-  // Simply opening MessagesScreen does NOT mark messages
-  // as read.
-  //
-  // Only opening the specific ChatScreen marks that
-  // conversation as read.
-  //
-  // After returning, we ask backend for the real count.
+  // CREATE LISTING
   // ------------------------------------------------------------
 
-  Future<void> openMessages() async {
-    await Navigator.push(
+  void openAddListing() {
+    Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) =>
-            MessagesScreen(
+            AddListingScreen(
           userId: widget.userId,
+          userName: widget.userName,
         ),
       ),
     );
+  }
 
-    // User returned from Messages.
-    //
-    // Refresh the actual backend count.
-    await loadUnreadCount();
+  // ------------------------------------------------------------
+  // PROFILE
+  // ------------------------------------------------------------
+
+  void openProfile() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            ProfileScreen(
+          userId: widget.userId,
+          userName: widget.userName,
+        ),
+      ),
+    );
   }
 
   // ------------------------------------------------------------
@@ -309,8 +342,7 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context) =>
             PropertyDetailsScreen(
           property: property,
-          currentUserId:
-              widget.userId,
+          currentUserId: widget.userId,
         ),
       ),
     );
@@ -323,9 +355,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     unreadTimer?.cancel();
-
     cityController.dispose();
-
     super.dispose();
   }
 
@@ -333,7 +363,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // MESSAGE BADGE
   // ------------------------------------------------------------
 
-  Widget buildMessageBadge() {
+  Widget messageBadge() {
     if (unreadMessageCount <= 0) {
       return const SizedBox.shrink();
     }
@@ -341,46 +371,411 @@ class _HomeScreenState extends State<HomeScreen> {
     final String text =
         unreadMessageCount > 99
             ? '99+'
-            : unreadMessageCount
-                .toString();
+            : unreadMessageCount.toString();
 
     return Positioned(
-      right: -4,
-      top: -4,
+      right: 0,
+      top: 0,
       child: Container(
         constraints:
             const BoxConstraints(
-          minWidth: 20,
-          minHeight: 20,
+          minWidth: 18,
+          minHeight: 18,
         ),
         padding:
             const EdgeInsets.symmetric(
-          horizontal: 5,
+          horizontal: 4,
           vertical: 2,
         ),
-        decoration:
-            BoxDecoration(
+        decoration: const BoxDecoration(
           color: Colors.red,
-          shape:
-              BoxShape.circle,
-          border:
-              Border.all(
-            color: Theme.of(context)
-                .scaffoldBackgroundColor,
-            width: 2,
-          ),
+          shape: BoxShape.circle,
         ),
         child: Center(
           child: Text(
             text,
-            style:
-                const TextStyle(
+            style: const TextStyle(
               color: Colors.white,
-              fontSize: 10,
-              fontWeight:
-                  FontWeight.bold,
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------
+  // HEADER
+  // ------------------------------------------------------------
+
+  Widget buildHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(
+        20,
+        14,
+        20,
+        14,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(
+            color: Color(0xFFE5E7EB),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Image.asset(
+            'assets/images/app_logo.png',
+            width: 42,
+            height: 42,
+            fit: BoxFit.contain,
+
+            errorBuilder:
+                (context, error, stackTrace) {
+              return Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color:
+                      const Color(0xFFEFF6FF),
+                  borderRadius:
+                      BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.home_outlined,
+                  color: Color(0xFF2563EB),
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(width: 12),
+
+          const Text(
+            'PropertiesAnywhere',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF171717),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------
+  // BOTTOM NAVIGATION
+  // ------------------------------------------------------------
+
+  Widget buildBottomNavigation() {
+    return SafeArea(
+      child: Container(
+        height: 68,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(
+            top: BorderSide(
+              color: Color(0xFFE5E7EB),
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            _bottomItem(
+              icon: Icons.message_outlined,
+              label: 'Messages',
+              badge: true,
+              onTap: openMessages,
+            ),
+
+            _bottomItem(
+              icon: Icons.list_alt_outlined,
+              label: 'My Listings',
+              onTap: openMyListings,
+            ),
+
+            _bottomItem(
+              icon: Icons.add_home_outlined,
+              label: 'Create',
+              onTap: openAddListing,
+            ),
+
+            _bottomItem(
+              icon: Icons.person_outline,
+              label: 'Profile',
+              onTap: openProfile,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _bottomItem({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool badge = false,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Center(
+              child: Column(
+                mainAxisAlignment:
+                    MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    size: 23,
+                    color:
+                        const Color(0xFF4B5563),
+                  ),
+
+                  const SizedBox(height: 3),
+
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow:
+                        TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color:
+                          Color(0xFF4B5563),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            if (badge) messageBadge(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------
+  // PROPERTY CARD
+  // ------------------------------------------------------------
+
+  Widget buildPropertyCard(
+    Map<String, dynamic> property,
+  ) {
+    final String imageUrl =
+        property['imageUrl']
+                ?.toString() ??
+            '';
+
+    final String title =
+        property['title']
+                ?.toString() ??
+            'No title';
+
+    final String city =
+        property['city']
+                ?.toString() ??
+            '';
+
+    final String address =
+        property['address']
+                ?.toString() ??
+            '';
+
+    final String rent =
+        property['rent']
+                ?.toString() ??
+            '0';
+
+    final String description =
+        property['description']
+                ?.toString()
+                .trim() ??
+            '';
+
+    return Container(
+      margin:
+          const EdgeInsets.only(bottom: 18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius:
+            BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFFE5E7EB),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
+          openPropertyDetails(property);
+        },
+        child: Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            // IMAGE
+            SizedBox(
+              height: 190,
+              width: double.infinity,
+              child: imageUrl.isNotEmpty
+                  ? Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder:
+                          (
+                        context,
+                        error,
+                        stackTrace,
+                      ) {
+                        return _imagePlaceholder();
+                      },
+                    )
+                  : _imagePlaceholder(),
+            ),
+
+            Padding(
+              padding:
+                  const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          maxLines: 2,
+                          overflow:
+                              TextOverflow.ellipsis,
+                          style:
+                              const TextStyle(
+                            fontSize: 18,
+                            fontWeight:
+                                FontWeight.w700,
+                            color:
+                                Color(0xFF171717),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(width: 10),
+
+                      Text(
+                        '€$rent',
+                        style:
+                            const TextStyle(
+                          fontSize: 17,
+                          fontWeight:
+                              FontWeight.w700,
+                          color:
+                              Color(0xFF2563EB),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 9),
+
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.location_on_outlined,
+                        size: 17,
+                        color:
+                            Color(0xFF6B7280),
+                      ),
+
+                      const SizedBox(width: 5),
+
+                      Expanded(
+                        child: Text(
+                          '$city${address.isNotEmpty ? ' • $address' : ''}',
+                          maxLines: 2,
+                          overflow:
+                              TextOverflow.ellipsis,
+                          style:
+                              const TextStyle(
+                            fontSize: 13,
+                            color:
+                                Color(0xFF6B7280),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  if (description.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+
+                    Text(
+                      description,
+                      maxLines: 2,
+                      overflow:
+                          TextOverflow.ellipsis,
+                      style:
+                          const TextStyle(
+                        fontSize: 13,
+                        height: 1.4,
+                        color:
+                            Color(0xFF4B5563),
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 12),
+
+                  Row(
+                    children: [
+                      const Text(
+                        'View details',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight:
+                              FontWeight.w600,
+                          color:
+                              Color(0xFF2563EB),
+                        ),
+                      ),
+
+                      const SizedBox(width: 4),
+
+                      const Icon(
+                        Icons.arrow_forward,
+                        size: 15,
+                        color:
+                            Color(0xFF2563EB),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _imagePlaceholder() {
+    return Container(
+      color: const Color(0xFFE5E7EB),
+      child: const Center(
+        child: Icon(
+          Icons.home_outlined,
+          size: 65,
+          color: Color(0xFF9CA3AF),
         ),
       ),
     );
@@ -393,365 +788,204 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'PropertiesAnywhere',
-          style: TextStyle(
-            fontWeight:
-                FontWeight.bold,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon:
-                const Icon(
-              Icons.list_alt,
-            ),
-            tooltip:
-                'My Listings',
-            onPressed:
-                openMyListings,
-          ),
-
-          IconButton(
-            icon:
-                const Icon(
-              Icons.add_home_outlined,
-            ),
-            tooltip:
-                'Add Listing',
-            onPressed:
-                openAddListing,
-          ),
-
-          IconButton(
-            icon:
-                const Icon(
-              Icons.logout,
-            ),
-            tooltip:
-                'Logout',
-            onPressed:
-                logout,
-          ),
-        ],
-      ),
-
-      body: Padding(
-        padding:
-            const EdgeInsets.all(20),
+      // IMPORTANT:
+      // Header is separate from body.
+      // No profile/message icon here.
+      body: SafeArea(
         child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
           children: [
-            const SizedBox(
-              height: 20,
-            ),
+            buildHeader(),
 
-            Text(
-              'Welcome, ${widget.userName}!',
-              style:
-                  const TextStyle(
-                fontSize: 16,
-              ),
-            ),
+            // Only this part scrolls.
+            Expanded(
+              child: SingleChildScrollView(
+                padding:
+                    const EdgeInsets.fromLTRB(
+                  20,
+                  22,
+                  20,
+                  20,
+                ),
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Welcome, ${widget.userName}',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight:
+                            FontWeight.w500,
+                        color:
+                            Color(0xFF6B7280),
+                      ),
+                    ),
 
-            const SizedBox(
-              height: 10,
-            ),
+                    const SizedBox(height: 6),
 
-            const Text(
-              'Find your next home.',
-              style:
-                  TextStyle(
-                fontSize: 28,
-                fontWeight:
-                    FontWeight.bold,
-              ),
-            ),
+                    const Text(
+                      'Find your next home.',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight:
+                            FontWeight.w700,
+                        color:
+                            Color(0xFF171717),
+                      ),
+                    ),
 
-            const SizedBox(
-              height: 10,
-            ),
+                    const SizedBox(height: 7),
 
-            const Text(
-              'Search for rooms and properties by city.',
-            ),
+                    const Text(
+                      'Search rooms and properties by city.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color:
+                            Color(0xFF6B7280),
+                      ),
+                    ),
 
-            const SizedBox(
-              height: 25,
-            ),
+                    const SizedBox(height: 22),
 
-            TextField(
-              controller:
-                  cityController,
-              decoration:
-                  const InputDecoration(
-                labelText:
-                    'City',
-                hintText:
-                    'e.g. Munich',
-                border:
-                    OutlineInputBorder(),
-                prefixIcon:
-                    Icon(
-                  Icons.location_city,
+                    // SEARCH
+                    TextField(
+                      controller:
+                          cityController,
+                      textInputAction:
+                          TextInputAction.search,
+                      onSubmitted: (_) {
+                        searchProperties();
+                      },
+                      decoration:
+                          const InputDecoration(
+                        hintText:
+                            'Search by city',
+                        prefixIcon:
+                            Icon(
+                          Icons.search,
+                          color:
+                              Color(0xFF6B7280),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    SizedBox(
+                      width: double.infinity,
+                      child:
+                          ElevatedButton.icon(
+                        onPressed:
+                            isLoading
+                                ? null
+                                : searchProperties,
+                        icon: isLoading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child:
+                                    CircularProgressIndicator(
+                                  strokeWidth:
+                                      2,
+                                  color:
+                                      Colors.white,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.search,
+                              ),
+                        label: Text(
+                          isLoading
+                              ? 'Searching...'
+                              : 'Search Properties',
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 26),
+
+                    if (properties.isEmpty)
+                      _emptyState()
+                    else
+                      Column(
+                        children:
+                            properties.map(
+                          buildPropertyCard,
+                        ).toList(),
+                      ),
+                  ],
                 ),
               ),
-              onSubmitted: (_) {
-                searchProperties();
-              },
-            ),
-
-            const SizedBox(
-              height: 15,
-            ),
-
-            SizedBox(
-              width:
-                  double.infinity,
-              child:
-                  ElevatedButton(
-                onPressed:
-                    isLoading
-                        ? null
-                        : searchProperties,
-                child:
-                    isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child:
-                                CircularProgressIndicator(
-                              strokeWidth:
-                                  2,
-                            ),
-                          )
-                        : const Text(
-                            'Search',
-                          ),
-              ),
-            ),
-
-            const SizedBox(
-              height: 25,
-            ),
-
-            Expanded(
-              child:
-                  properties.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'Search for a city to see properties.',
-                            textAlign:
-                                TextAlign.center,
-                          ),
-                        )
-                      : ListView.builder(
-                          itemCount:
-                              properties.length,
-                          itemBuilder:
-                              (
-                            BuildContext context,
-                            int index,
-                          ) {
-                            final Map<
-                                    String,
-                                    dynamic>
-                                property =
-                                properties[index];
-
-                            final String
-                                imageUrl =
-                                property[
-                                            'imageUrl']
-                                        ?.toString() ??
-                                    '';
-
-                            return Card(
-                              margin:
-                                  const EdgeInsets
-                                      .only(
-                                bottom: 20,
-                              ),
-                              child:
-                                  InkWell(
-                                borderRadius:
-                                    BorderRadius
-                                        .circular(
-                                  12,
-                                ),
-                                onTap: () {
-                                  openPropertyDetails(
-                                    property,
-                                  );
-                                },
-                                child:
-                                    Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment
-                                          .start,
-                                  children: [
-                                    if (imageUrl
-                                        .isNotEmpty)
-                                      Image.network(
-                                        imageUrl,
-                                        height:
-                                            180,
-                                        width:
-                                            double
-                                                .infinity,
-                                        fit:
-                                            BoxFit
-                                                .cover,
-                                        errorBuilder:
-                                            (
-                                          context,
-                                          error,
-                                          stackTrace,
-                                        ) {
-                                          return Container(
-                                            height:
-                                                180,
-                                            width:
-                                                double
-                                                    .infinity,
-                                            color: Colors
-                                                .grey
-                                                .shade300,
-                                            child:
-                                                const Center(
-                                              child:
-                                                  Icon(
-                                                Icons.home,
-                                                size:
-                                                    60,
-                                                color:
-                                                    Colors.grey,
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      )
-                                    else
-                                      Container(
-                                        height:
-                                            180,
-                                        width:
-                                            double
-                                                .infinity,
-                                        color: Colors
-                                            .grey
-                                            .shade300,
-                                        child:
-                                            const Center(
-                                          child:
-                                              Icon(
-                                            Icons.home,
-                                            size:
-                                                60,
-                                            color:
-                                                Colors.grey,
-                                          ),
-                                        ),
-                                      ),
-
-                                    ListTile(
-                                      title:
-                                          Text(
-                                        property[
-                                                    'title']
-                                                ?.toString() ??
-                                            'No title',
-                                      ),
-                                      subtitle:
-                                          Text(
-                                        '${property['city']?.toString() ?? ''}'
-                                        ' • '
-                                        '${property['address']?.toString() ?? ''}',
-                                      ),
-                                      trailing:
-                                          Text(
-                                        '€${property['rent']?.toString() ?? '0'}',
-                                      ),
-                                    ),
-
-                                    if (property[
-                                                'description'] !=
-                                            null &&
-                                        property[
-                                                'description']
-                                            .toString()
-                                            .trim()
-                                            .isNotEmpty)
-                                      Padding(
-                                        padding:
-                                            const EdgeInsets
-                                                .fromLTRB(
-                                          16,
-                                          0,
-                                          16,
-                                          16,
-                                        ),
-                                        child:
-                                            Text(
-                                          property[
-                                                  'description']
-                                              .toString(),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
             ),
           ],
         ),
       ),
 
-      // ----------------------------------------------------------
-      // FOOTER MESSAGE BUTTON + UNREAD COUNT
-      // ----------------------------------------------------------
-
+      // Fixed bottom navigation.
       bottomNavigationBar:
-          SafeArea(
-        child: Padding(
-          padding:
-              const EdgeInsets.symmetric(
-            vertical: 8,
-          ),
-          child:
-              Row(
-            mainAxisAlignment:
-                MainAxisAlignment.center,
-            children: [
-              Stack(
-                clipBehavior:
-                    Clip.none,
-                children: [
-                  IconButton(
-                    iconSize: 30,
-                    tooltip:
-                        unreadMessageCount >
-                                0
-                            ? '$unreadMessageCount new messages'
-                            : 'Messages',
-                    icon:
-                        const Icon(
-                      Icons.message_outlined,
-                    ),
-                    onPressed:
-                        openMessages,
-                  ),
+          buildBottomNavigation(),
+    );
+  }
 
-                  buildMessageBadge(),
-                ],
-              ),
-            ],
-          ),
+  Widget _emptyState() {
+    return Container(
+      width: double.infinity,
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal: 25,
+        vertical: 45,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius:
+            BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFFE5E7EB),
         ),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 65,
+            height: 65,
+            decoration: BoxDecoration(
+              color:
+                  const Color(0xFFEFF6FF),
+              borderRadius:
+                  BorderRadius.circular(18),
+            ),
+            child: const Icon(
+              Icons.home_work_outlined,
+              size: 32,
+              color:
+                  Color(0xFF2563EB),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          const Text(
+            'Find your next place',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight:
+                  FontWeight.w700,
+            ),
+          ),
+
+          const SizedBox(height: 7),
+
+          const Text(
+            'Enter a city above to discover available properties.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.5,
+              color:
+                  Color(0xFF6B7280),
+            ),
+          ),
+        ],
       ),
     );
   }
