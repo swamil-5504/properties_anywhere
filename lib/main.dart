@@ -23,80 +23,56 @@ class PropertiesAnywhereApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'PropertiesAnywhere',
-
       theme: ThemeData(
         useMaterial3: true,
-
-        scaffoldBackgroundColor:
-            const Color(0xFFF7F8FA),
-
+        scaffoldBackgroundColor: const Color(0xFFF7F8FA),
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF2563EB),
         ),
-
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.white,
           foregroundColor: Color(0xFF171717),
           elevation: 0,
         ),
-
-        inputDecorationTheme:
-            InputDecorationTheme(
+        inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: Colors.white,
-
           border: OutlineInputBorder(
-            borderRadius:
-                BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(14),
             borderSide: const BorderSide(
               color: Color(0xFFE5E7EB),
             ),
           ),
-
           enabledBorder: OutlineInputBorder(
-            borderRadius:
-                BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(14),
             borderSide: const BorderSide(
               color: Color(0xFFE5E7EB),
             ),
           ),
-
           focusedBorder: OutlineInputBorder(
-            borderRadius:
-                BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(14),
             borderSide: const BorderSide(
               color: Color(0xFF2563EB),
               width: 1.5,
             ),
           ),
-
-          contentPadding:
-              const EdgeInsets.symmetric(
+          contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
             vertical: 15,
           ),
         ),
-
-        elevatedButtonTheme:
-            ElevatedButtonThemeData(
+        elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor:
-                const Color(0xFF2563EB),
+            backgroundColor: const Color(0xFF2563EB),
             foregroundColor: Colors.white,
             elevation: 0,
-
-            minimumSize:
-                const Size.fromHeight(50),
-
-            shape:
-                RoundedRectangleBorder(
-              borderRadius:
-                  BorderRadius.circular(14),
+            minimumSize: const Size.fromHeight(50),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
             ),
           ),
         ),
       ),
-
       home: const LoginScreen(),
     );
   }
@@ -113,8 +89,7 @@ class HomeScreen extends StatefulWidget {
   });
 
   @override
-  State<HomeScreen> createState() =>
-      _HomeScreenState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
@@ -153,8 +128,7 @@ class _HomeScreenState extends State<HomeScreen> {
         'http://10.0.2.2:8080/api/messages/unread/count/${widget.userId}',
       );
 
-      final response =
-          await http.get(url);
+      final response = await http.get(url);
 
       if (response.statusCode == 200) {
         final int? count =
@@ -198,8 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     try {
-      final response =
-          await http.get(url);
+      final response = await http.get(url);
 
       if (response.statusCode == 200) {
         final dynamic decoded =
@@ -219,8 +192,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
           if (mounted) {
             setState(() {
-              properties =
-                  loadedProperties;
+              properties = loadedProperties;
             });
           }
         } else {
@@ -268,8 +240,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) =>
-            MessagesScreen(
+        builder: (context) => MessagesScreen(
           userId: widget.userId,
         ),
       ),
@@ -286,8 +257,7 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) =>
-            MyListingsScreen(
+        builder: (context) => MyListingsScreen(
           userId: widget.userId,
           userName: widget.userName,
         ),
@@ -303,8 +273,7 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) =>
-            AddListingScreen(
+        builder: (context) => AddListingScreen(
           userId: widget.userId,
           userName: widget.userName,
         ),
@@ -320,8 +289,7 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) =>
-            ProfileScreen(
+        builder: (context) => ProfileScreen(
           userId: widget.userId,
           userName: widget.userName,
         ),
@@ -339,8 +307,7 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) =>
-            PropertyDetailsScreen(
+        builder: (context) => PropertyDetailsScreen(
           property: property,
           currentUserId: widget.userId,
         ),
@@ -377,13 +344,11 @@ class _HomeScreenState extends State<HomeScreen> {
       right: 0,
       top: 0,
       child: Container(
-        constraints:
-            const BoxConstraints(
+        constraints: const BoxConstraints(
           minWidth: 18,
           minHeight: 18,
         ),
-        padding:
-            const EdgeInsets.symmetric(
+        padding: const EdgeInsets.symmetric(
           horizontal: 4,
           vertical: 2,
         ),
@@ -433,15 +398,13 @@ class _HomeScreenState extends State<HomeScreen> {
             width: 42,
             height: 42,
             fit: BoxFit.contain,
-
             errorBuilder:
                 (context, error, stackTrace) {
               return Container(
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color:
-                      const Color(0xFFEFF6FF),
+                  color: const Color(0xFFEFF6FF),
                   borderRadius:
                       BorderRadius.circular(12),
                 ),
@@ -452,9 +415,7 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-
           const SizedBox(width: 12),
-
           const Text(
             'PropertiesAnywhere',
             style: TextStyle(
@@ -492,19 +453,16 @@ class _HomeScreenState extends State<HomeScreen> {
               badge: true,
               onTap: openMessages,
             ),
-
             _bottomItem(
               icon: Icons.list_alt_outlined,
               label: 'My Listings',
               onTap: openMyListings,
             ),
-
             _bottomItem(
               icon: Icons.add_home_outlined,
               label: 'Create',
               onTap: openAddListing,
             ),
-
             _bottomItem(
               icon: Icons.person_outline,
               label: 'Profile',
@@ -536,27 +494,21 @@ class _HomeScreenState extends State<HomeScreen> {
                   Icon(
                     icon,
                     size: 23,
-                    color:
-                        const Color(0xFF4B5563),
+                    color: const Color(0xFF4B5563),
                   ),
-
                   const SizedBox(height: 3),
-
                   Text(
                     label,
                     maxLines: 1,
-                    overflow:
-                        TextOverflow.ellipsis,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 10,
-                      color:
-                          Color(0xFF4B5563),
+                      color: Color(0xFF4B5563),
                     ),
                   ),
                 ],
               ),
             ),
-
             if (badge) messageBadge(),
           ],
         ),
@@ -571,10 +523,29 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget buildPropertyCard(
     Map<String, dynamic> property,
   ) {
-    final String imageUrl =
+    /*
+     * Backend now returns imageUrl like:
+     *
+     * /uploads/abc123.jpg
+     *
+     * Android emulator needs:
+     *
+     * http://10.0.2.2:8080/uploads/abc123.jpg
+     *
+     * External URLs are kept unchanged.
+     */
+    String imageUrl =
         property['imageUrl']
-                ?.toString() ??
+                ?.toString()
+                .trim() ??
             '';
+
+    if (imageUrl.isNotEmpty &&
+        !imageUrl.startsWith('http://') &&
+        !imageUrl.startsWith('https://')) {
+      imageUrl =
+          'http://10.0.2.2:8080$imageUrl';
+    }
 
     final String title =
         property['title']
@@ -603,8 +574,9 @@ class _HomeScreenState extends State<HomeScreen> {
             '';
 
     return Container(
-      margin:
-          const EdgeInsets.only(bottom: 18),
+      margin: const EdgeInsets.only(
+        bottom: 18,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius:
@@ -636,6 +608,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         error,
                         stackTrace,
                       ) {
+                        debugPrint(
+                          'Property image failed to load: '
+                          '$imageUrl',
+                        );
+
                         return _imagePlaceholder();
                       },
                     )
@@ -669,9 +646,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                       ),
-
                       const SizedBox(width: 10),
-
                       Text(
                         '€$rent',
                         style:
@@ -696,9 +671,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         color:
                             Color(0xFF6B7280),
                       ),
-
                       const SizedBox(width: 5),
-
                       Expanded(
                         child: Text(
                           '$city${address.isNotEmpty ? ' • $address' : ''}',
@@ -718,7 +691,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   if (description.isNotEmpty) ...[
                     const SizedBox(height: 12),
-
                     Text(
                       description,
                       maxLines: 2,
@@ -748,9 +720,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               Color(0xFF2563EB),
                         ),
                       ),
-
                       const SizedBox(width: 4),
-
                       const Icon(
                         Icons.arrow_forward,
                         size: 15,
@@ -788,15 +758,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // IMPORTANT:
-      // Header is separate from body.
-      // No profile/message icon here.
       body: SafeArea(
         child: Column(
           children: [
             buildHeader(),
 
-            // Only this part scrolls.
             Expanded(
               child: SingleChildScrollView(
                 padding:
@@ -847,7 +813,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
                     const SizedBox(height: 22),
 
-                    // SEARCH
                     TextField(
                       controller:
                           cityController,
@@ -885,8 +850,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 height: 18,
                                 child:
                                     CircularProgressIndicator(
-                                  strokeWidth:
-                                      2,
+                                  strokeWidth: 2,
                                   color:
                                       Colors.white,
                                 ),
@@ -909,9 +873,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     else
                       Column(
                         children:
-                            properties.map(
-                          buildPropertyCard,
-                        ).toList(),
+                            properties
+                                .map(
+                                  buildPropertyCard,
+                                )
+                                .toList(),
                       ),
                   ],
                 ),
@@ -921,7 +887,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
 
-      // Fixed bottom navigation.
       bottomNavigationBar:
           buildBottomNavigation(),
     );

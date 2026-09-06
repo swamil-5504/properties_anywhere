@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import 'chat_screen.dart';
 
 class PropertyDetailsScreen extends StatelessWidget {
@@ -13,25 +12,22 @@ class PropertyDetailsScreen extends StatelessWidget {
   });
 
   int? getOwnerId() {
-    final dynamic user = property['user'];
+    final user = property['user'];
 
     if (user is Map) {
-      return int.tryParse(
-        user['id']?.toString() ?? '',
-      );
+      return int.tryParse(user['id']?.toString() ?? '');
     }
 
     return null;
   }
 
   String getOwnerName() {
-    final dynamic user = property['user'];
+    final user = property['user'];
 
     if (user is Map) {
-      final dynamic name = user['name'];
+      final name = user['name'];
 
-      if (name != null &&
-          name.toString().trim().isNotEmpty) {
+      if (name != null && name.toString().trim().isNotEmpty) {
         return name.toString().trim();
       }
     }
@@ -39,10 +35,29 @@ class PropertyDetailsScreen extends StatelessWidget {
     return '';
   }
 
+  String getImageUrl() {
+    String imageUrl =
+        property['imageUrl']?.toString().trim() ?? '';
+
+    if (imageUrl.isEmpty) {
+      return '';
+    }
+
+    if (!imageUrl.startsWith('http://') &&
+        !imageUrl.startsWith('https://')) {
+      if (!imageUrl.startsWith('/')) {
+        imageUrl = '/$imageUrl';
+      }
+
+      imageUrl = 'http://10.0.2.2:8080$imageUrl';
+    }
+
+    return imageUrl;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final String imageUrl =
-        property['imageUrl']?.toString() ?? '';
+    final String imageUrl = getImageUrl();
 
     final String ownerName = getOwnerName();
 
@@ -74,62 +89,46 @@ class PropertyDetailsScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
-
       body: CustomScrollView(
         slivers: [
-          // --------------------------------------------------
-          // PROPERTY IMAGE
-          // --------------------------------------------------
-
           SliverAppBar(
             expandedHeight: 330,
             pinned: true,
-
             backgroundColor: Colors.white,
-
             elevation: 0,
-
             leading: Padding(
               padding: const EdgeInsets.all(8),
-
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.black.withOpacity(0.45),
                   shape: BoxShape.circle,
                 ),
-
                 child: IconButton(
                   icon: const Icon(
                     Icons.arrow_back,
                     color: Colors.white,
                   ),
-
                   onPressed: () {
                     Navigator.pop(context);
                   },
                 ),
               ),
             ),
-
             actions: [
               Padding(
                 padding: const EdgeInsets.all(8),
-
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.black.withOpacity(0.45),
                     shape: BoxShape.circle,
                   ),
-
                   child: IconButton(
                     icon: const Icon(
                       Icons.favorite_border,
                       color: Colors.white,
                     ),
-
                     onPressed: () {
-                      ScaffoldMessenger.of(context)
-                          .showSnackBar(
+                      ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text(
                             'Favorites coming soon',
@@ -143,25 +142,47 @@ class PropertyDetailsScreen extends StatelessWidget {
                 ),
               ),
             ],
-
             flexibleSpace: FlexibleSpaceBar(
               background: imageUrl.isNotEmpty
                   ? Image.network(
                       imageUrl,
                       fit: BoxFit.cover,
+                      loadingBuilder: (
+                        context,
+                        child,
+                        loadingProgress,
+                      ) {
+                        if (loadingProgress == null) {
+                          return child;
+                        }
 
-                      errorBuilder:
-                          (context, error, stackTrace) {
+                        return Container(
+                          color: const Color(0xFFE5E7EB),
+                          child: const Center(
+                            child:
+                                CircularProgressIndicator(),
+                          ),
+                        );
+                      },
+                      errorBuilder: (
+                        context,
+                        error,
+                        stackTrace,
+                      ) {
+                        debugPrint(
+                          'Property image failed: $imageUrl',
+                        );
+
+                        debugPrint(
+                          'Image error: $error',
+                        );
+
                         return _imagePlaceholder();
                       },
                     )
                   : _imagePlaceholder(),
             ),
           ),
-
-          // --------------------------------------------------
-          // CONTENT
-          // --------------------------------------------------
 
           SliverToBoxAdapter(
             child: Padding(
@@ -171,25 +192,17 @@ class PropertyDetailsScreen extends StatelessWidget {
                 20,
                 110,
               ),
-
               child: Column(
                 crossAxisAlignment:
                     CrossAxisAlignment.start,
-
                 children: [
-                  // --------------------------------------------------
-                  // TITLE + RENT
-                  // --------------------------------------------------
-
                   Row(
                     crossAxisAlignment:
                         CrossAxisAlignment.start,
-
                     children: [
                       Expanded(
                         child: Text(
                           propertyTitle,
-
                           style: const TextStyle(
                             fontSize: 27,
                             fontWeight: FontWeight.w700,
@@ -202,25 +215,23 @@ class PropertyDetailsScreen extends StatelessWidget {
                       const SizedBox(width: 15),
 
                       Container(
-                        padding: const EdgeInsets.symmetric(
+                        padding:
+                            const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 8,
                         ),
-
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
+                          color:
+                              const Color(0xFFEFF6FF),
                           borderRadius:
                               BorderRadius.circular(12),
                         ),
-
                         child: Column(
                           crossAxisAlignment:
                               CrossAxisAlignment.end,
-
                           children: [
                             Text(
                               '€$rent',
-
                               style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight:
@@ -229,10 +240,8 @@ class PropertyDetailsScreen extends StatelessWidget {
                                     Color(0xFF2563EB),
                               ),
                             ),
-
                             const Text(
                               '/ month',
-
                               style: TextStyle(
                                 fontSize: 11,
                                 color:
@@ -247,47 +256,33 @@ class PropertyDetailsScreen extends StatelessWidget {
 
                   const SizedBox(height: 18),
 
-                  // --------------------------------------------------
-                  // LOCATION
-                  // --------------------------------------------------
-
                   Container(
                     width: double.infinity,
-
                     padding: const EdgeInsets.all(16),
-
                     decoration: BoxDecoration(
                       color: Colors.white,
-
                       borderRadius:
                           BorderRadius.circular(16),
-
                       border: Border.all(
                         color:
                             const Color(0xFFE5E7EB),
                       ),
                     ),
-
                     child: Row(
                       crossAxisAlignment:
                           CrossAxisAlignment.start,
-
                       children: [
                         Container(
                           width: 42,
                           height: 42,
-
                           decoration: BoxDecoration(
                             color:
                                 const Color(0xFFEFF6FF),
-
                             borderRadius:
                                 BorderRadius.circular(12),
                           ),
-
                           child: const Icon(
                             Icons.location_on_outlined,
-
                             color:
                                 Color(0xFF2563EB),
                           ),
@@ -299,11 +294,9 @@ class PropertyDetailsScreen extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment:
                                 CrossAxisAlignment.start,
-
                             children: [
                               const Text(
                                 'Location',
-
                                 style: TextStyle(
                                   fontSize: 12,
                                   color:
@@ -317,7 +310,6 @@ class PropertyDetailsScreen extends StatelessWidget {
                                 city.isNotEmpty
                                     ? city
                                     : 'Location unavailable',
-
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight:
@@ -329,10 +321,8 @@ class PropertyDetailsScreen extends StatelessWidget {
 
                               if (address.isNotEmpty) ...[
                                 const SizedBox(height: 2),
-
                                 Text(
                                   address,
-
                                   style:
                                       const TextStyle(
                                     fontSize: 13,
@@ -350,13 +340,8 @@ class PropertyDetailsScreen extends StatelessWidget {
 
                   const SizedBox(height: 28),
 
-                  // --------------------------------------------------
-                  // DESCRIPTION
-                  // --------------------------------------------------
-
                   const Text(
                     'About this place',
-
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
@@ -370,7 +355,6 @@ class PropertyDetailsScreen extends StatelessWidget {
                     description.isNotEmpty
                         ? description
                         : 'No description provided.',
-
                     style: const TextStyle(
                       fontSize: 15,
                       color: Color(0xFF4B5563),
@@ -380,14 +364,9 @@ class PropertyDetailsScreen extends StatelessWidget {
 
                   const SizedBox(height: 28),
 
-                  // --------------------------------------------------
-                  // OWNER
-                  // --------------------------------------------------
-
                   if (ownerName.isNotEmpty) ...[
                     const Text(
                       'Listed by',
-
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
@@ -399,42 +378,32 @@ class PropertyDetailsScreen extends StatelessWidget {
 
                     Container(
                       width: double.infinity,
-
                       padding:
                           const EdgeInsets.all(16),
-
                       decoration: BoxDecoration(
                         color: Colors.white,
-
                         borderRadius:
                             BorderRadius.circular(16),
-
                         border: Border.all(
                           color:
                               const Color(0xFFE5E7EB),
                         ),
                       ),
-
                       child: Row(
                         children: [
                           Container(
                             width: 50,
                             height: 50,
-
                             decoration:
                                 const BoxDecoration(
                               color:
                                   Color(0xFFEFF6FF),
-
                               shape: BoxShape.circle,
                             ),
-
                             child: const Icon(
                               Icons.person_outline,
-
                               color:
                                   Color(0xFF2563EB),
-
                               size: 26,
                             ),
                           ),
@@ -445,11 +414,9 @@ class PropertyDetailsScreen extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment:
                                   CrossAxisAlignment.start,
-
                               children: [
                                 Text(
                                   ownerName,
-
                                   style:
                                       const TextStyle(
                                     fontSize: 16,
@@ -464,7 +431,6 @@ class PropertyDetailsScreen extends StatelessWidget {
 
                                 const Text(
                                   'Property owner',
-
                                   style: TextStyle(
                                     fontSize: 13,
                                     color:
@@ -477,10 +443,8 @@ class PropertyDetailsScreen extends StatelessWidget {
 
                           const Icon(
                             Icons.verified_outlined,
-
                             color:
                                 Color(0xFF2563EB),
-
                             size: 22,
                           ),
                         ],
@@ -494,10 +458,6 @@ class PropertyDetailsScreen extends StatelessWidget {
         ],
       ),
 
-      // --------------------------------------------------
-      // BOTTOM MESSAGE BUTTON
-      // --------------------------------------------------
-
       bottomNavigationBar: SafeArea(
         child: Container(
           padding: const EdgeInsets.fromLTRB(
@@ -506,26 +466,20 @@ class PropertyDetailsScreen extends StatelessWidget {
             20,
             12,
           ),
-
           decoration: BoxDecoration(
             color: Colors.white,
-
             boxShadow: [
               BoxShadow(
                 color:
                     Colors.black.withOpacity(0.08),
-
                 blurRadius: 15,
-
                 offset: const Offset(0, -4),
               ),
             ],
           ),
-
           child: SizedBox(
             height: 54,
             width: double.infinity,
-
             child: ElevatedButton.icon(
               onPressed: canMessage
                   ? () {
@@ -536,15 +490,9 @@ class PropertyDetailsScreen extends StatelessWidget {
                               ChatScreen(
                             currentUserId:
                                 currentUserId,
-
                             ownerId: ownerId!,
-
-                            ownerName:
-                                ownerName,
-
-                            propertyId:
-                                propertyId!,
-
+                            ownerName: ownerName,
+                            propertyId: propertyId!,
                             propertyTitle:
                                 propertyTitle,
                           ),
@@ -552,38 +500,28 @@ class PropertyDetailsScreen extends StatelessWidget {
                       );
                     }
                   : null,
-
               icon: const Icon(
                 Icons.chat_bubble_outline,
                 size: 21,
               ),
-
               label: Text(
                 ownerId == currentUserId
                     ? 'Your Listing'
                     : 'Message Owner',
-
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-
               style: ElevatedButton.styleFrom(
                 backgroundColor:
                     const Color(0xFF2563EB),
-
                 disabledBackgroundColor:
                     const Color(0xFFE5E7EB),
-
                 disabledForegroundColor:
                     const Color(0xFF9CA3AF),
-
-                foregroundColor:
-                    Colors.white,
-
+                foregroundColor: Colors.white,
                 elevation: 0,
-
                 shape: RoundedRectangleBorder(
                   borderRadius:
                       BorderRadius.circular(14),
@@ -599,13 +537,10 @@ class PropertyDetailsScreen extends StatelessWidget {
   Widget _imagePlaceholder() {
     return Container(
       color: const Color(0xFFE5E7EB),
-
       child: const Center(
         child: Icon(
           Icons.home_outlined,
-
           size: 90,
-
           color: Color(0xFF9CA3AF),
         ),
       ),
