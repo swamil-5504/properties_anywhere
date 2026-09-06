@@ -49,7 +49,7 @@ class PropertyDetailsScreen extends StatelessWidget {
         imageUrl = '/$imageUrl';
       }
 
-      imageUrl = 'http://10.0.2.2:8080$imageUrl';
+      imageUrl = 'https://properties-anywhere-backend.onrender.com$imageUrl';
     }
 
     return imageUrl;

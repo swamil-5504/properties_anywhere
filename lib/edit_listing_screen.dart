@@ -489,7 +489,7 @@ class _EditListingScreenState extends State<EditListingScreen> {
     if (existingImageUrl.isNotEmpty) {
       displayImageUrl = existingImageUrl.startsWith('http')
           ? existingImageUrl
-          : 'http://10.0.2.2:8080$existingImageUrl';
+          : 'https://properties-anywhere-backend.onrender.com$existingImageUrl';
     }
 
     return Scaffold(

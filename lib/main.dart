@@ -530,7 +530,7 @@ class _HomeScreenState extends State<HomeScreen> {
      *
      * Android emulator needs:
      *
-     * http://10.0.2.2:8080/uploads/abc123.jpg
+     * https://properties-anywhere-backend.onrender.com/uploads/abc123.jpg
      *
      * External URLs are kept unchanged.
      */
@@ -544,7 +544,7 @@ class _HomeScreenState extends State<HomeScreen> {
         !imageUrl.startsWith('http://') &&
         !imageUrl.startsWith('https://')) {
       imageUrl =
-          'http://10.0.2.2:8080$imageUrl';
+          'https://properties-anywhere-backend.onrender.com$imageUrl';
     }
 
     final String title =

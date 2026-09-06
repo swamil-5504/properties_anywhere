@@ -171,7 +171,7 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
     // /uploads/example.jpg
     //
     // Android emulator needs:
-    // http://10.0.2.2:8080/uploads/example.jpg
+    // https://properties-anywhere-backend.onrender.com/uploads/example.jpg
     //
     // External http/https URLs are kept unchanged.
     // ----------------------------------------------------------
@@ -182,7 +182,7 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
         !finalImageUrl.startsWith('http://') &&
         !finalImageUrl.startsWith('https://')) {
       finalImageUrl =
-          'http://10.0.2.2:8080$finalImageUrl';
+          'https://properties-anywhere-backend.onrender.com$finalImageUrl';
     }
 
     debugPrint(
