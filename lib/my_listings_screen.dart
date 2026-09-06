@@ -164,15 +164,51 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
       return buildImagePlaceholder();
     }
 
+    // ----------------------------------------------------------
+    // CONVERT BACKEND RELATIVE PATH TO EMULATOR URL
+    //
+    // Backend returns:
+    // /uploads/example.jpg
+    //
+    // Android emulator needs:
+    // http://10.0.2.2:8080/uploads/example.jpg
+    //
+    // External http/https URLs are kept unchanged.
+    // ----------------------------------------------------------
+
+    String finalImageUrl = imageUrl.trim();
+
+    if (finalImageUrl.isNotEmpty &&
+        !finalImageUrl.startsWith('http://') &&
+        !finalImageUrl.startsWith('https://')) {
+      finalImageUrl =
+          'http://10.0.2.2:8080$finalImageUrl';
+    }
+
+    debugPrint(
+      'My listing image URL: $finalImageUrl',
+    );
+
     return Image.network(
-      imageUrl,
+      finalImageUrl,
       height: 210,
       width: double.infinity,
       fit: BoxFit.cover,
+
       errorBuilder:
           (context, error, stackTrace) {
+        debugPrint(
+          'My listing image failed to load: '
+          '$finalImageUrl',
+        );
+
+        debugPrint(
+          'Image error: $error',
+        );
+
         return buildImagePlaceholder();
       },
+
       loadingBuilder:
           (context, child, loadingProgress) {
         if (loadingProgress == null) {
@@ -259,16 +295,22 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
     Map<String, dynamic> property,
   ) {
     final String imageUrl =
-        property['imageUrl']?.toString() ?? '';
+        property['imageUrl']
+                ?.toString()
+                .trim() ??
+            '';
 
     final String title =
-        property['title']?.toString().trim() ?? '';
+        property['title']?.toString().trim() ??
+            '';
 
     final String city =
-        property['city']?.toString().trim() ?? '';
+        property['city']?.toString().trim() ??
+            '';
 
     final String address =
-        property['address']?.toString().trim() ?? '';
+        property['address']?.toString().trim() ??
+            '';
 
     final String rent =
         property['rent']?.toString() ?? '0';
@@ -285,13 +327,15 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
       ),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius:
+            BorderRadius.circular(20),
         border: Border.all(
           color: const Color(0xFFE5E7EB),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color:
+                Colors.black.withOpacity(0.05),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -383,7 +427,8 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
                     const Icon(
                       Icons.location_on_outlined,
                       size: 19,
-                      color: Color(0xFF2563EB),
+                      color:
+                          Color(0xFF2563EB),
                     ),
 
                     const SizedBox(width: 7),
@@ -445,16 +490,19 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
                 SizedBox(
                   width: double.infinity,
                   height: 48,
-                  child: ElevatedButton.icon(
+                  child:
+                      ElevatedButton.icon(
                     onPressed: () {
                       openEditListing(
                         property,
                       );
                     },
+
                     icon: const Icon(
                       Icons.edit_outlined,
                       size: 19,
                     ),
+
                     label: const Text(
                       'Edit Listing',
                       style: TextStyle(
@@ -463,10 +511,13 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
                             FontWeight.w600,
                       ),
                     ),
+
                     style:
                         ElevatedButton.styleFrom(
                       backgroundColor:
-                          const Color(0xFF2563EB),
+                          const Color(
+                        0xFF2563EB,
+                      ),
                       foregroundColor:
                           Colors.white,
                       elevation: 0,
@@ -531,14 +582,17 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
 
       body: isLoading
           ? const Center(
-              child: CircularProgressIndicator(
-                color: Color(0xFF2563EB),
+              child:
+                  CircularProgressIndicator(
+                color:
+                    Color(0xFF2563EB),
               ),
             )
           : properties.isEmpty
               ? RefreshIndicator(
                   onRefresh: loadListings,
-                  color: const Color(0xFF2563EB),
+                  color:
+                      const Color(0xFF2563EB),
                   child: ListView(
                     physics:
                         const AlwaysScrollableScrollPhysics(),
@@ -549,14 +603,16 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
                                     .size
                                     .height *
                                 0.65,
-                        child: buildEmptyState(),
+                        child:
+                            buildEmptyState(),
                       ),
                     ],
                   ),
                 )
               : RefreshIndicator(
                   onRefresh: loadListings,
-                  color: const Color(0xFF2563EB),
+                  color:
+                      const Color(0xFF2563EB),
                   child: ListView.builder(
                     physics:
                         const AlwaysScrollableScrollPhysics(),

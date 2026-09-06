@@ -1,7 +1,8 @@
-import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 
 class AddListingScreen extends StatefulWidget {
   final int userId;
@@ -22,17 +23,172 @@ class _AddListingScreenState extends State<AddListingScreen> {
   final cityController = TextEditingController();
   final addressController = TextEditingController();
   final rentController = TextEditingController();
-  final imageUrlController = TextEditingController();
   final descriptionController = TextEditingController();
 
+  // ------------------------------------------------------------
+  // PHOTO
+  // ------------------------------------------------------------
+
+  final ImagePicker _picker = ImagePicker();
+  File? _selectedImage;
+
   bool _isLoading = false;
+
+  // ------------------------------------------------------------
+  // SHOW CAMERA / GALLERY OPTIONS
+  // ------------------------------------------------------------
+
+  Future<void> _showImageSourceOptions() async {
+    if (_isLoading) return;
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              20,
+              12,
+              20,
+              24,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle
+                Container(
+                  width: 42,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD1D5DB),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+
+                const SizedBox(height: 22),
+
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Add a property photo',
+                    style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF171717),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 6),
+
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Choose how you want to add your photo.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 22),
+
+                Row(
+                  children: [
+                    // CAMERA
+                    Expanded(
+                      child: _imageOption(
+                        icon: Icons.camera_alt_outlined,
+                        title: 'Camera',
+                        subtitle: 'Take a photo',
+                        onTap: () {
+                          Navigator.pop(context);
+                          _pickImage(ImageSource.camera);
+                        },
+                      ),
+                    ),
+
+                    const SizedBox(width: 14),
+
+                    // GALLERY
+                    Expanded(
+                      child: _imageOption(
+                        icon: Icons.photo_library_outlined,
+                        title: 'Gallery',
+                        subtitle: 'Choose a photo',
+                        onTap: () {
+                          Navigator.pop(context);
+                          _pickImage(ImageSource.gallery);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ------------------------------------------------------------
+  // CAMERA / GALLERY PICKER
+  // ------------------------------------------------------------
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: source,
+        imageQuality: 80,
+        maxWidth: 1600,
+        maxHeight: 1600,
+      );
+
+      if (image != null) {
+        setState(() {
+          _selectedImage = File(image.path);
+        });
+      }
+    } catch (error) {
+      debugPrint(error.toString());
+
+      if (!mounted) return;
+
+      showMessage(
+        source == ImageSource.camera
+            ? 'Could not open camera'
+            : 'Could not open gallery',
+      );
+    }
+  }
+
+  // ------------------------------------------------------------
+  // REMOVE SELECTED PHOTO
+  // ------------------------------------------------------------
+
+  void _removeImage() {
+    setState(() {
+      _selectedImage = null;
+    });
+  }
+
+  // ------------------------------------------------------------
+  // ADD LISTING
+  // ------------------------------------------------------------
 
   Future<void> addListing() async {
     String title = titleController.text.trim();
     String city = cityController.text.trim();
     String address = addressController.text.trim();
     String rentText = rentController.text.trim();
-    String imageUrl = imageUrlController.text.trim();
     String description = descriptionController.text.trim();
 
     if (title.isEmpty ||
@@ -61,19 +217,33 @@ class _AddListingScreenState extends State<AddListingScreen> {
     );
 
     try {
-      final response = await http.post(
+      // Multipart request for property + image
+      final request = http.MultipartRequest(
+        'POST',
         url,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'title': title,
-          'city': city,
-          'address': address,
-          'rent': rent,
-          'imageUrl': imageUrl,
-          'description': description,
-        }),
+      );
+
+      // Property fields
+      request.fields['title'] = title;
+      request.fields['city'] = city;
+      request.fields['address'] = address;
+      request.fields['rent'] = rent.toString();
+      request.fields['description'] = description;
+
+      // Add image if selected
+      if (_selectedImage != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'image',
+            _selectedImage!.path,
+          ),
+        );
+      }
+
+      final streamedResponse = await request.send();
+
+      final response = await http.Response.fromStream(
+        streamedResponse,
       );
 
       if (!mounted) return;
@@ -101,6 +271,78 @@ class _AddListingScreenState extends State<AddListingScreen> {
     }
   }
 
+  // ------------------------------------------------------------
+  // IMAGE OPTION CARD
+  // ------------------------------------------------------------
+
+  Widget _imageOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          vertical: 18,
+          horizontal: 12,
+        ),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7F8FA),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: const Color(0xFFE5E7EB),
+          ),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Icon(
+                icon,
+                color: const Color(0xFF2563EB),
+                size: 25,
+              ),
+            ),
+
+            const SizedBox(height: 11),
+
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF171717),
+              ),
+            ),
+
+            const SizedBox(height: 3),
+
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 11,
+                color: Color(0xFF6B7280),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------
+  // COMMON MESSAGE
+  // ------------------------------------------------------------
+
   void showMessage(String message) {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
@@ -115,6 +357,10 @@ class _AddListingScreenState extends State<AddListingScreen> {
       ),
     );
   }
+
+  // ------------------------------------------------------------
+  // TEXT FIELD DECORATION
+  // ------------------------------------------------------------
 
   InputDecoration fieldDecoration({
     required String hint,
@@ -166,7 +412,14 @@ class _AddListingScreenState extends State<AddListingScreen> {
     );
   }
 
-  Widget sectionTitle(String title, String subtitle) {
+  // ------------------------------------------------------------
+  // SECTION TITLE
+  // ------------------------------------------------------------
+
+  Widget sectionTitle(
+    String title,
+    String subtitle,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -198,11 +451,14 @@ class _AddListingScreenState extends State<AddListingScreen> {
     cityController.dispose();
     addressController.dispose();
     rentController.dispose();
-    imageUrlController.dispose();
     descriptionController.dispose();
 
     super.dispose();
   }
+
+  // ------------------------------------------------------------
+  // BUILD
+  // ------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -218,7 +474,6 @@ class _AddListingScreenState extends State<AddListingScreen> {
             Icons.arrow_back_ios_new,
             size: 20,
           ),
-
           onPressed: () {
             Navigator.pop(context);
           },
@@ -244,16 +499,22 @@ class _AddListingScreenState extends State<AddListingScreen> {
           ),
 
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+
             children: [
-              // Header card
+              // ------------------------------------------------
+              // HEADER CARD
+              // ------------------------------------------------
+
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
 
                 decoration: BoxDecoration(
                   color: const Color(0xFF2563EB),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius:
+                      BorderRadius.circular(20),
                 ),
 
                 child: Row(
@@ -263,8 +524,10 @@ class _AddListingScreenState extends State<AddListingScreen> {
                       height: 52,
 
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.18),
-                        borderRadius: BorderRadius.circular(15),
+                        color:
+                            Colors.white.withOpacity(0.18),
+                        borderRadius:
+                            BorderRadius.circular(15),
                       ),
 
                       child: const Icon(
@@ -287,7 +550,8 @@ class _AddListingScreenState extends State<AddListingScreen> {
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 18,
-                              fontWeight: FontWeight.w700,
+                              fontWeight:
+                                  FontWeight.w700,
                             ),
                           ),
 
@@ -295,7 +559,8 @@ class _AddListingScreenState extends State<AddListingScreen> {
 
                           Text(
                             'Posted by ${widget.userName}',
-                            style: const TextStyle(
+                            style:
+                                const TextStyle(
                               color: Colors.white70,
                               fontSize: 13,
                             ),
@@ -309,7 +574,10 @@ class _AddListingScreenState extends State<AddListingScreen> {
 
               const SizedBox(height: 30),
 
-              // Basic information
+              // ------------------------------------------------
+              // PROPERTY DETAILS
+              // ------------------------------------------------
+
               sectionTitle(
                 'Property details',
                 'Tell people about the place you are offering.',
@@ -317,7 +585,6 @@ class _AddListingScreenState extends State<AddListingScreen> {
 
               const SizedBox(height: 18),
 
-              // Title
               const Text(
                 'Listing title',
                 style: TextStyle(
@@ -331,10 +598,8 @@ class _AddListingScreenState extends State<AddListingScreen> {
 
               TextField(
                 controller: titleController,
-
                 textCapitalization:
                     TextCapitalization.sentences,
-
                 decoration: fieldDecoration(
                   hint: 'e.g. Cozy room in Munich',
                   icon: Icons.home_outlined,
@@ -343,7 +608,6 @@ class _AddListingScreenState extends State<AddListingScreen> {
 
               const SizedBox(height: 20),
 
-              // City
               const Text(
                 'City',
                 style: TextStyle(
@@ -357,10 +621,8 @@ class _AddListingScreenState extends State<AddListingScreen> {
 
               TextField(
                 controller: cityController,
-
                 textCapitalization:
                     TextCapitalization.words,
-
                 decoration: fieldDecoration(
                   hint: 'e.g. Munich',
                   icon: Icons.location_city_outlined,
@@ -369,7 +631,6 @@ class _AddListingScreenState extends State<AddListingScreen> {
 
               const SizedBox(height: 20),
 
-              // Address
               const Text(
                 'Address',
                 style: TextStyle(
@@ -383,7 +644,6 @@ class _AddListingScreenState extends State<AddListingScreen> {
 
               TextField(
                 controller: addressController,
-
                 decoration: fieldDecoration(
                   hint: 'e.g. Main Street 10',
                   icon: Icons.location_on_outlined,
@@ -392,7 +652,6 @@ class _AddListingScreenState extends State<AddListingScreen> {
 
               const SizedBox(height: 20),
 
-              // Rent
               const Text(
                 'Monthly rent',
                 style: TextStyle(
@@ -406,12 +665,10 @@ class _AddListingScreenState extends State<AddListingScreen> {
 
               TextField(
                 controller: rentController,
-
                 keyboardType:
                     const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-
                 decoration: fieldDecoration(
                   hint: 'e.g. 650',
                   icon: Icons.euro_outlined,
@@ -421,49 +678,224 @@ class _AddListingScreenState extends State<AddListingScreen> {
 
               const SizedBox(height: 30),
 
-              // Photos
+              // ------------------------------------------------
+              // PHOTOS
+              // ------------------------------------------------
+
               sectionTitle(
                 'Property photo',
-                'Add an image URL to show your property.',
+                'Add a photo from your camera or gallery.',
               ),
 
               const SizedBox(height: 18),
 
-              const Text(
-                'Image URL',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF374151),
+              if (_selectedImage != null) ...[
+                // PHOTO PREVIEW
+                Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius:
+                          BorderRadius.circular(18),
+
+                      child: Image.file(
+                        _selectedImage!,
+                        width: double.infinity,
+                        height: 230,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+
+                    // SMALL X BUTTON
+                    Positioned(
+                      top: 10,
+                      right: 10,
+
+                      child: GestureDetector(
+                        onTap: _removeImage,
+
+                        child: Container(
+                          width: 32,
+                          height: 32,
+
+                          decoration:
+                              BoxDecoration(
+                            color: Colors.black
+                                .withOpacity(0.65),
+                            shape: BoxShape.circle,
+                          ),
+
+                          child: const Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 19,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
 
-              const SizedBox(height: 8),
+                const SizedBox(height: 12),
 
-              TextField(
-                controller: imageUrlController,
+                // CHANGE PHOTO BUTTON
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
 
-                keyboardType: TextInputType.url,
+                  child: OutlinedButton.icon(
+                    onPressed: _isLoading
+                        ? null
+                        : _showImageSourceOptions,
 
-                decoration: fieldDecoration(
-                  hint: 'Paste an image URL',
-                  icon: Icons.image_outlined,
+                    icon: const Icon(
+                      Icons.refresh_outlined,
+                      size: 20,
+                    ),
+
+                    label: const Text(
+                      'Change Photo',
+                    ),
+
+                    style:
+                        OutlinedButton.styleFrom(
+                      foregroundColor:
+                          const Color(0xFF2563EB),
+
+                      side: const BorderSide(
+                        color: Color(0xFF2563EB),
+                      ),
+
+                      shape:
+                          RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+              ] else ...[
+                // ADD PHOTO BOX
+                InkWell(
+                  onTap: _isLoading
+                      ? null
+                      : _showImageSourceOptions,
 
-              const SizedBox(height: 8),
+                  borderRadius:
+                      BorderRadius.circular(18),
 
-              const Text(
-                'Example: https://example.com/property.jpg',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF9CA3AF),
+                  child: Container(
+                    width: double.infinity,
+                    padding:
+                        const EdgeInsets.symmetric(
+                      vertical: 28,
+                      horizontal: 20,
+                    ),
+
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius:
+                          BorderRadius.circular(18),
+
+                      border: Border.all(
+                        color: const Color(
+                          0xFFD1D5DB,
+                        ),
+                      ),
+                    ),
+
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 58,
+                          height: 58,
+
+                          decoration:
+                              BoxDecoration(
+                            color:
+                                const Color(
+                              0xFFEFF6FF,
+                            ),
+                            borderRadius:
+                                BorderRadius
+                                    .circular(17),
+                          ),
+
+                          child: const Icon(
+                            Icons
+                                .add_a_photo_outlined,
+                            color:
+                                Color(0xFF2563EB),
+                            size: 28,
+                          ),
+                        ),
+
+                        const SizedBox(height: 14),
+
+                        const Text(
+                          'Add a photo',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight:
+                                FontWeight.w700,
+                            color:
+                                Color(0xFF171717),
+                          ),
+                        ),
+
+                        const SizedBox(height: 5),
+
+                        const Text(
+                          'Camera or Gallery',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color:
+                                Color(0xFF6B7280),
+                          ),
+                        ),
+
+                        const SizedBox(height: 15),
+
+                        Container(
+                          padding:
+                              const EdgeInsets
+                                  .symmetric(
+                            horizontal: 16,
+                            vertical: 9,
+                          ),
+
+                          decoration:
+                              BoxDecoration(
+                            color:
+                                const Color(
+                              0xFF2563EB,
+                            ),
+                            borderRadius:
+                                BorderRadius
+                                    .circular(10),
+                          ),
+
+                          child: const Text(
+                            'Choose Photo',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight:
+                                  FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+              ],
 
               const SizedBox(height: 30),
 
-              // Description
+              // ------------------------------------------------
+              // DESCRIPTION
+              // ------------------------------------------------
+
               sectionTitle(
                 'Description',
                 'Give potential tenants more information.',
@@ -473,16 +905,15 @@ class _AddListingScreenState extends State<AddListingScreen> {
 
               TextField(
                 controller: descriptionController,
-
                 textCapitalization:
                     TextCapitalization.sentences,
-
                 maxLines: 6,
 
                 decoration: InputDecoration(
                   hintText:
                       'Describe the room, apartment, location, '
                       'facilities, roommates, transport connections...',
+
                   hintStyle: const TextStyle(
                     color: Color(0xFF9CA3AF),
                     height: 1.4,
@@ -491,23 +922,32 @@ class _AddListingScreenState extends State<AddListingScreen> {
                   filled: true,
                   fillColor: Colors.white,
 
-                  contentPadding: const EdgeInsets.all(16),
+                  contentPadding:
+                      const EdgeInsets.all(16),
 
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
+                    borderRadius:
+                        BorderRadius.circular(14),
+                    borderSide:
+                        BorderSide.none,
                   ),
 
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(
+                  enabledBorder:
+                      OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(14),
+                    borderSide:
+                        const BorderSide(
                       color: Color(0xFFE5E7EB),
                     ),
                   ),
 
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(
+                  focusedBorder:
+                      OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(14),
+                    borderSide:
+                        const BorderSide(
                       color: Color(0xFF2563EB),
                       width: 1.5,
                     ),
@@ -517,13 +957,17 @@ class _AddListingScreenState extends State<AddListingScreen> {
 
               const SizedBox(height: 30),
 
-              // Information box
+              // ------------------------------------------------
+              // INFORMATION BOX
+              // ------------------------------------------------
+
               Container(
                 padding: const EdgeInsets.all(16),
 
                 decoration: BoxDecoration(
                   color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius:
+                      BorderRadius.circular(14),
                   border: Border.all(
                     color: const Color(0xFFDBEAFE),
                   ),
@@ -560,7 +1004,10 @@ class _AddListingScreenState extends State<AddListingScreen> {
 
               const SizedBox(height: 28),
 
-              // Post button
+              // ------------------------------------------------
+              // POST BUTTON
+              // ------------------------------------------------
+
               SizedBox(
                 width: double.infinity,
                 height: 56,
@@ -569,18 +1016,21 @@ class _AddListingScreenState extends State<AddListingScreen> {
                   onPressed:
                       _isLoading ? null : addListing,
 
-                  style: ElevatedButton.styleFrom(
+                  style:
+                      ElevatedButton.styleFrom(
                     backgroundColor:
                         const Color(0xFF2563EB),
 
                     disabledBackgroundColor:
                         const Color(0xFF93B4F5),
 
-                    foregroundColor: Colors.white,
+                    foregroundColor:
+                        Colors.white,
 
                     elevation: 0,
 
-                    shape: RoundedRectangleBorder(
+                    shape:
+                        RoundedRectangleBorder(
                       borderRadius:
                           BorderRadius.circular(14),
                     ),

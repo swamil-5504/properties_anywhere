@@ -1,7 +1,8 @@
-import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 
 class EditListingScreen extends StatefulWidget {
   final Map<String, dynamic> property;
@@ -23,8 +24,15 @@ class _EditListingScreenState extends State<EditListingScreen> {
   late TextEditingController cityController;
   late TextEditingController addressController;
   late TextEditingController rentController;
-  late TextEditingController imageUrlController;
   late TextEditingController descriptionController;
+
+  // --------------------------------------------------
+  // PHOTO
+  // --------------------------------------------------
+
+  final ImagePicker _picker = ImagePicker();
+
+  File? _selectedImage;
 
   bool isUpdating = false;
 
@@ -54,10 +62,6 @@ class _EditListingScreenState extends State<EditListingScreen> {
       text: widget.property['rent']?.toString() ?? '',
     );
 
-    imageUrlController = TextEditingController(
-      text: widget.property['imageUrl']?.toString() ?? '',
-    );
-
     descriptionController = TextEditingController(
       text: widget.property['description']?.toString() ?? '',
     );
@@ -69,31 +73,171 @@ class _EditListingScreenState extends State<EditListingScreen> {
     cityController.dispose();
     addressController.dispose();
     rentController.dispose();
-    imageUrlController.dispose();
     descriptionController.dispose();
 
     super.dispose();
   }
+
+  // --------------------------------------------------
+  // CAMERA / GALLERY OPTIONS
+  // --------------------------------------------------
+
+  Future<void> _showImageSourceOptions() async {
+    if (isUpdating) return;
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              20,
+              12,
+              20,
+              24,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 42,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD1D5DB),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+
+                const SizedBox(height: 22),
+
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Change property photo',
+                    style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w700,
+                      color: textColor,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 6),
+
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Choose how you want to add your photo.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: secondaryTextColor,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 22),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: _imageOption(
+                        icon: Icons.camera_alt_outlined,
+                        title: 'Camera',
+                        subtitle: 'Take a photo',
+                        onTap: () {
+                          Navigator.pop(context);
+                          _pickImage(ImageSource.camera);
+                        },
+                      ),
+                    ),
+
+                    const SizedBox(width: 14),
+
+                    Expanded(
+                      child: _imageOption(
+                        icon: Icons.photo_library_outlined,
+                        title: 'Gallery',
+                        subtitle: 'Choose a photo',
+                        onTap: () {
+                          Navigator.pop(context);
+                          _pickImage(ImageSource.gallery);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // --------------------------------------------------
+  // PICK IMAGE
+  // --------------------------------------------------
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: source,
+        imageQuality: 80,
+        maxWidth: 1600,
+        maxHeight: 1600,
+      );
+
+      if (image != null) {
+        setState(() {
+          _selectedImage = File(image.path);
+        });
+      }
+    } catch (error) {
+      debugPrint(error.toString());
+
+      if (!mounted) return;
+
+      _showMessage(
+        source == ImageSource.camera
+            ? 'Could not open camera'
+            : 'Could not open gallery',
+      );
+    }
+  }
+
+  // --------------------------------------------------
+  // REMOVE NEW PHOTO
+  // --------------------------------------------------
+
+  void _removeSelectedImage() {
+    setState(() {
+      _selectedImage = null;
+    });
+  }
+
+  // --------------------------------------------------
+  // UPDATE LISTING
+  // --------------------------------------------------
 
   Future<void> updateListing() async {
     final title = titleController.text.trim();
     final city = cityController.text.trim();
     final address = addressController.text.trim();
     final rentText = rentController.text.trim();
-    final imageUrl = imageUrlController.text.trim();
     final description = descriptionController.text.trim();
 
     if (title.isEmpty ||
         city.isEmpty ||
         address.isEmpty ||
         rentText.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please fill in title, city, address and rent.',
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
+      _showMessage(
+        'Please fill in title, city, address and rent.',
       );
       return;
     }
@@ -101,14 +245,7 @@ class _EditListingScreenState extends State<EditListingScreen> {
     final double? rent = double.tryParse(rentText);
 
     if (rent == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please enter a valid rent.',
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      _showMessage('Please enter a valid rent.');
       return;
     }
 
@@ -123,22 +260,33 @@ class _EditListingScreenState extends State<EditListingScreen> {
       '$propertyId?userId=${widget.userId}',
     );
 
-    final body = jsonEncode({
-      'title': title,
-      'city': city,
-      'address': address,
-      'rent': rent,
-      'imageUrl': imageUrl,
-      'description': description,
-    });
-
     try {
-      final response = await http.put(
+      // Multipart request instead of JSON
+      final request = http.MultipartRequest(
+        'PUT',
         url,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: body,
+      );
+
+      request.fields['title'] = title;
+      request.fields['city'] = city;
+      request.fields['address'] = address;
+      request.fields['rent'] = rent.toString();
+      request.fields['description'] = description;
+
+      // Only upload a file if the user selected a new photo.
+      if (_selectedImage != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'image',
+            _selectedImage!.path,
+          ),
+        );
+      }
+
+      final streamedResponse = await request.send();
+
+      final response = await http.Response.fromStream(
+        streamedResponse,
       );
 
       if (response.statusCode == 200) {
@@ -146,13 +294,8 @@ class _EditListingScreenState extends State<EditListingScreen> {
           return;
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Listing updated successfully.',
-            ),
-            behavior: SnackBarBehavior.floating,
-          ),
+        _showMessage(
+          'Listing updated successfully.',
         );
 
         Navigator.pop(context, true);
@@ -164,14 +307,9 @@ class _EditListingScreenState extends State<EditListingScreen> {
         debugPrint(response.body);
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Failed to update listing. '
-                'Status: ${response.statusCode}',
-              ),
-              behavior: SnackBarBehavior.floating,
-            ),
+          _showMessage(
+            'Failed to update listing. '
+            'Status: ${response.statusCode}',
           );
         }
       }
@@ -181,13 +319,8 @@ class _EditListingScreenState extends State<EditListingScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Could not connect to the server.',
-            ),
-            behavior: SnackBarBehavior.floating,
-          ),
+        _showMessage(
+          'Could not connect to the server.',
         );
       }
     }
@@ -199,6 +332,97 @@ class _EditListingScreenState extends State<EditListingScreen> {
     }
   }
 
+  // --------------------------------------------------
+  // IMAGE OPTION CARD
+  // --------------------------------------------------
+
+  Widget _imageOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          vertical: 18,
+          horizontal: 12,
+        ),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: borderColor,
+          ),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Icon(
+                icon,
+                color: primaryBlue,
+                size: 25,
+              ),
+            ),
+
+            const SizedBox(height: 11),
+
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: textColor,
+              ),
+            ),
+
+            const SizedBox(height: 3),
+
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 11,
+                color: secondaryTextColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --------------------------------------------------
+  // MESSAGE
+  // --------------------------------------------------
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
+  // --------------------------------------------------
+  // INPUT DECORATION
+  // --------------------------------------------------
+
   InputDecoration inputDecoration({
     required String label,
     required IconData icon,
@@ -207,29 +431,35 @@ class _EditListingScreenState extends State<EditListingScreen> {
     return InputDecoration(
       labelText: label,
       hintText: hint,
+
       prefixIcon: Icon(
         icon,
         color: secondaryTextColor,
         size: 21,
       ),
+
       filled: true,
       fillColor: Colors.white,
+
       contentPadding: const EdgeInsets.symmetric(
         horizontal: 16,
         vertical: 16,
       ),
+
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(
           color: borderColor,
         ),
       ),
+
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(
           color: borderColor,
         ),
       ),
+
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(
@@ -237,6 +467,7 @@ class _EditListingScreenState extends State<EditListingScreen> {
           width: 1.5,
         ),
       ),
+
       floatingLabelStyle: const TextStyle(
         color: primaryBlue,
         fontWeight: FontWeight.w500,
@@ -244,8 +475,23 @@ class _EditListingScreenState extends State<EditListingScreen> {
     );
   }
 
+  // --------------------------------------------------
+  // BUILD
+  // --------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
+    final existingImageUrl =
+        widget.property['imageUrl']?.toString() ?? '';
+
+    String? displayImageUrl;
+
+    if (existingImageUrl.isNotEmpty) {
+      displayImageUrl = existingImageUrl.startsWith('http')
+          ? existingImageUrl
+          : 'http://10.0.2.2:8080$existingImageUrl';
+    }
+
     return Scaffold(
       backgroundColor: backgroundColor,
 
@@ -301,7 +547,8 @@ class _EditListingScreenState extends State<EditListingScreen> {
 
               decoration: BoxDecoration(
                 color: const Color(0xFFEFF6FF),
-                borderRadius: BorderRadius.circular(18),
+                borderRadius:
+                    BorderRadius.circular(18),
               ),
 
               child: Row(
@@ -460,7 +707,7 @@ class _EditListingScreenState extends State<EditListingScreen> {
             const SizedBox(height: 8),
 
             const Text(
-              'Add an image URL to show your property photo.',
+              'Change the photo using your camera or gallery.',
               style: TextStyle(
                 fontSize: 13,
                 color: secondaryTextColor,
@@ -469,14 +716,140 @@ class _EditListingScreenState extends State<EditListingScreen> {
 
             const SizedBox(height: 14),
 
-            TextField(
-              controller: imageUrlController,
-              keyboardType:
-                  TextInputType.url,
-              decoration: inputDecoration(
-                label: 'Image URL',
-                icon: Icons.image_outlined,
-                hint: 'https://example.com/house.jpg',
+            // NEW PHOTO SELECTED
+            if (_selectedImage != null)
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius:
+                        BorderRadius.circular(18),
+                    child: Image.file(
+                      _selectedImage!,
+                      width: double.infinity,
+                      height: 230,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: GestureDetector(
+                      onTap: _removeSelectedImage,
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration:
+                            BoxDecoration(
+                          color: Colors.black
+                              .withOpacity(0.65),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 19,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              )
+
+            // EXISTING SERVER PHOTO
+            else if (displayImageUrl != null)
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius:
+                        BorderRadius.circular(18),
+                    child: Image.network(
+                      displayImageUrl,
+                      width: double.infinity,
+                      height: 230,
+                      fit: BoxFit.cover,
+                      errorBuilder:
+                          (context, error, stackTrace) {
+                        return _noImagePreview();
+                      },
+                    ),
+                  ),
+
+                  Positioned(
+                    bottom: 12,
+                    right: 12,
+                    child: Container(
+                      padding:
+                          const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black
+                            .withOpacity(0.65),
+                        borderRadius:
+                            BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        'Current photo',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight:
+                              FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              )
+
+            // NO IMAGE
+            else
+              _noImagePreview(),
+
+            const SizedBox(height: 12),
+
+            // CHANGE / ADD PHOTO
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+
+              child: OutlinedButton.icon(
+                onPressed: isUpdating
+                    ? null
+                    : _showImageSourceOptions,
+
+                icon: Icon(
+                  _selectedImage != null ||
+                          displayImageUrl != null
+                      ? Icons.refresh_outlined
+                      : Icons.add_a_photo_outlined,
+                  size: 20,
+                ),
+
+                label: Text(
+                  _selectedImage != null ||
+                          displayImageUrl != null
+                      ? 'Change Photo'
+                      : 'Add Photo',
+                ),
+
+                style:
+                    OutlinedButton.styleFrom(
+                  foregroundColor:
+                      primaryBlue,
+
+                  side: const BorderSide(
+                    color: primaryBlue,
+                  ),
+
+                  shape:
+                      RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(14),
+                  ),
+                ),
               ),
             ),
 
@@ -502,6 +875,7 @@ class _EditListingScreenState extends State<EditListingScreen> {
               textCapitalization:
                   TextCapitalization.sentences,
               maxLines: 6,
+
               decoration: inputDecoration(
                 label: 'About the property',
                 icon: Icons.description_outlined,
@@ -590,7 +964,8 @@ class _EditListingScreenState extends State<EditListingScreen> {
 
                         children: [
                           Icon(
-                            Icons.check_circle_outline,
+                            Icons
+                                .check_circle_outline,
                             size: 21,
                           ),
 
@@ -622,6 +997,47 @@ class _EditListingScreenState extends State<EditListingScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // --------------------------------------------------
+  // NO IMAGE PLACEHOLDER
+  // --------------------------------------------------
+
+  Widget _noImagePreview() {
+    return Container(
+      width: double.infinity,
+      height: 180,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius:
+            BorderRadius.circular(18),
+        border: Border.all(
+          color: borderColor,
+        ),
+      ),
+      child: const Column(
+        mainAxisAlignment:
+            MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.image_outlined,
+            size: 42,
+            color: Color(0xFF9CA3AF),
+          ),
+
+          SizedBox(height: 10),
+
+          Text(
+            'No photo added',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: secondaryTextColor,
+            ),
+          ),
+        ],
       ),
     );
   }
